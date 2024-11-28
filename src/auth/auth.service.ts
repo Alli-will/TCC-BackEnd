@@ -1,4 +1,3 @@
-// auth/auth.service.ts
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { UserService } from '../user/user.service'; 
 import * as bcrypt from 'bcrypt';

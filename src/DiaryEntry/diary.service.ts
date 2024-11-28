@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DiaryEntry } from './entity/Diary.entity';
 import { Repository } from 'typeorm';
@@ -6,6 +6,7 @@ import { CreateDiaryEntryDto } from './dto/Create-Diary-Entry-Dto';
 
 @Injectable()
 export class DiaryService {
+
   constructor(
     @InjectRepository(DiaryEntry)
     private readonly diaryEntryRepository: Repository<DiaryEntry>,
@@ -24,10 +25,12 @@ export class DiaryService {
     }
   }
 
+
   async findEntriesByUserId(userId: number): Promise<DiaryEntry[]> {
     return await this.diaryEntryRepository.find({
       where: { user: { id: userId } },
       relations: ['user'], 
     });
-}
+  }
+  
 }

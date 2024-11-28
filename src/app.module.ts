@@ -9,7 +9,6 @@ import { AuthModule } from './auth/auth.module';
 import { DiaryModule } from './DiaryEntry/diary.module';
 import { DiaryEntry } from './DiaryEntry/entity/Diary.entity';
 import { PostModule} from './post/posts.module';
-import { PassportModule } from '@nestjs/passport';
 import { Post } from './post/entity/post.entity'
 
 

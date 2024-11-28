@@ -56,8 +56,6 @@ export class PostService {
       throw new NotFoundException('Post não encontrado');
     }
   
-    // Verifica se o usuário que está tentando excluir é o dono do post
-    // Converta post.user.id para string ou userId para number para garantir a comparação correta
     if (post.user.id.toString() !== userId) {
       throw new ForbiddenException('Você não tem permissão para excluir este post');
     }

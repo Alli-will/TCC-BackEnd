@@ -23,6 +23,6 @@ export class User{
   diaryEntries: DiaryEntry[];
 
   @OneToMany(() => Post, post => post.user)
-  posts: Post[];  // Lista de posts do usuário
+  posts: Post[];  
 
 }

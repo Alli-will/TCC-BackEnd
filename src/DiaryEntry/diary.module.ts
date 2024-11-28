@@ -6,7 +6,7 @@ import { DiaryController } from './diary.controller';
 import { UserModule } from 'src/user/user.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([DiaryEntry]),UserModule], // Registrar a entidade DiaryEntry
+  imports: [TypeOrmModule.forFeature([DiaryEntry]),UserModule], 
   controllers: [DiaryController],
   providers: [DiaryService],
   exports: [DiaryService],

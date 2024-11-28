@@ -5,9 +5,9 @@ import { PostService } from './post.service';
 import { PostController } from './post.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Post])], // Registra a entidade para o repositório
-  providers: [PostService], // Registra o serviço
-  controllers: [PostController], // Registra o controlador
-  exports: [PostService], // Exporta o serviço, se necessário
+  imports: [TypeOrmModule.forFeature([Post])], 
+  providers: [PostService], 
+  controllers: [PostController], 
+  exports: [PostService], 
 })
 export class PostModule {}

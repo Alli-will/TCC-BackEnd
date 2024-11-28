@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
-import { User } from '../../user/entity/user.entity'; // Certifique-se de que o caminho da importação está correto
+import { User } from '../../user/entity/user.entity'; 
 
 @Entity()
 export class Post {
@@ -16,12 +16,12 @@ export class Post {
   likes: number;
 
   @Column('text', { array: true, default: [] })
-  likedBy: string[]; // IDs dos usuários que curtiram o post
+  likedBy: string[]; 
 
   @Column('text', { array: true, default: [] })
   comments: string[];
 
-  // Relacionamento ManyToOne com User (um usuário pode ter muitos posts)
+
   @ManyToOne(() => User, user => user.posts)
-  user: User;  // Relacionamento com a entidade User
+  user: User;  
 }
