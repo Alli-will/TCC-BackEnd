@@ -1,7 +1,11 @@
 import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
 import { PostService } from './post.service';
-import { CreatePostDto } from './Dto/post.dto';
+import { CreatePostDto } from './dto/post.dto';
+import { CommentPostDto } from './Dto/comment.dto';
+import { LikePostDto } from './Dto/like.dto';
 import { Post as PostEntity } from './entity/post.entity';
+import { Comment } from './entity/comment.entity';
+import { Like } from './entity/like.entity';
 
 @Controller('posts')
 export class PostController {
@@ -17,21 +21,22 @@ export class PostController {
     return this.postService.create(postData);
   }
 
-
-  @Post(':id/like')
-  likePost(@Param('id') postId: number, @Body('userId') userId: string): Promise<PostEntity> {
-    return this.postService.likePost(postId, userId);
-  }
-
-
   @Post(':id/comment')
-  commentPost(@Param('id') postId: number, @Body('comment') comment: string): Promise<PostEntity> {
-    return this.postService.commentPost(postId, comment);
+  commentPost(
+    @Param('id') postId: number,
+    @Body() body: CommentPostDto,
+  ): Promise<Comment> {
+    return this.postService.commentPost(postId, body.userId, body.text);
+  }
+  
+  @Post(':id/like')
+  likePost(
+    @Param('id') postId: number,
+    @Body() body: LikePostDto,
+  ): Promise<Like | string> {
+    console.log('like request received', {postId , body});
+    return this.postService.likePost(postId, body.userId);
   }
 
-
-  @Delete(':id')
-  delete(@Param('id') postId: number, @Body('userId') userId: string): Promise<void> {
-    return this.postService.delete(postId, userId);
-  }
+  
 }

@@ -10,8 +10,10 @@ import { DiaryModule } from './DiaryEntry/diary.module';
 import { DiaryEntry } from './DiaryEntry/entity/Diary.entity';
 import { PostModule} from './post/posts.module';
 import { Post } from './post/entity/post.entity'
-import { ConsulModule } from './consul/consul.module';
-import { Consul } from './consul/entity/consul.entity';
+import { ConsultModule } from './consul/consult.module';
+import { Consult } from './consul/entity/consult.entity';
+import { Comment } from './post/entity/comment.entity';
+import { Like } from './post/entity/like.entity';
 
 
 @Module({
@@ -26,7 +28,7 @@ import { Consul } from './consul/entity/consul.entity';
           username: ConfigService.get('DB_USERNAME'),
           password: ConfigService.get('DB_PASSWORD'),
           database: ConfigService.get('DB_DATABASE'),
-          entities: [User,DiaryEntry,Post,Consul],
+          entities: [User,DiaryEntry,Post,Consult,Comment,Like],
           synchronize: true,
         }),
         inject: [ConfigService],
@@ -35,7 +37,7 @@ import { Consul } from './consul/entity/consul.entity';
       AuthModule,
       DiaryModule,
       PostModule,
-      ConsulModule
+      ConsultModule
   ],
   controllers: [AppController],
   providers: [AppService, ],

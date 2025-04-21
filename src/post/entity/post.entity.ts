@@ -1,5 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
-import { User } from '../../user/entity/user.entity'; 
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn } from 'typeorm';
+import { User } from '../../user/entity/user.entity';
+import { Like } from './like.entity';
+import { Comment } from './comment.entity';
 
 @Entity()
 export class Post {
@@ -12,16 +14,17 @@ export class Post {
   @Column()
   content: string;
 
-  @Column('int', { default: 0 })
-  likes: number;
-
-  @Column('text', { array: true, default: [] })
-  likedBy: string[]; 
-
-  @Column('text', { array: true, default: [] })
-  comments: string[];
-
+  @CreateDateColumn()
+    created_at: Date;
 
   @ManyToOne(() => User, user => user.posts)
-  user: User;  
+  user: User;
+
+  @OneToMany(() => Like, like => like.post, { cascade: true })
+  likes: Like[];
+
+  @OneToMany(() => Comment, comment => comment.post, { cascade: true })
+  comments: Comment[];
 }
+
+

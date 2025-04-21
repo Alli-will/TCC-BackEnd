@@ -1,27 +1,21 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Post } from '../../post/entity/post.entity';
 import { User } from '../../user/entity/user.entity';
 
 @Entity()
-export class DiaryEntry {
+export class Comment {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  date: Date;
-
-  @Column()
-  emotion: string;
-
   @Column('text')
-  description: string;
-
-  @Column()
-  @Column({ nullable: true })
-  reason_discouragement?: string;
+  content: string;
 
   @CreateDateColumn()
     created_at: Date;
 
-  @ManyToOne(() => User, (user) => user.diaryEntries)
+  @ManyToOne(() => Post, post => post.comments)
+  post: Post;
+
+  @ManyToOne(() => User, user => user.comments)
   user: User;
 }

@@ -1,10 +1,9 @@
-import { Injectable, InternalServerErrorException, BadRequestException, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from './entity/user.entity';
 import { Repository } from 'typeorm';
-import { CreateUserDto } from './dto/create-user-dto';
 import * as bcrypt from 'bcrypt';
-import * as jwt from 'jsonwebtoken'; 
+import { User, UserRole } from './entity/user.entity';
+import { CreateUserDto } from './dto/create-user-dto';
 
 @Injectable()
 export class UserService {
@@ -14,59 +13,46 @@ export class UserService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<Omit<User, 'password'>> {
-    try {
-      
-      const userExists = await this.userRepository.findOne({ where: { email: createUserDto.email } });
-      if (userExists) {
-        throw new BadRequestException('Já existe um usuário com este e-mail.');
-      }
 
-      const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
-      const newUser = this.userRepository.create({
-        ...createUserDto,
-        password: hashedPassword,
-      });
+    const newUser = this.userRepository.create({
+      first_Name: createUserDto.first_Name,
+      last_Name: createUserDto.last_Name,
+      email: createUserDto.email,
+      password: hashedPassword,
+      role: createUserDto.role || UserRole.CLIENT , 
+    });
 
-      const savedUser = await this.userRepository.save(newUser);
+    const savedUser = await this.userRepository.save(newUser);
 
-      const { password, ...result } = savedUser; 
-      return result;
-    } catch (error) {
-      
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Erro ao cadastrar usuário. Tente novamente mais tarde.');
-    }
+    const { password: _password, ...result } = savedUser;
+    return result;
   }
 
-  async login(email: string, password: string): Promise<{ token: string }> {
-    const user = await this.userRepository.findOne({ where: { email } });
+  async findAll(): Promise<Omit<User, 'password'>[]> {
+    const users = await this.userRepository.find();
+    return users.map(({ password, ...user }) => user);
+  }
+
+  async findOne(id: number): Promise<Omit<User, 'password'> | null> {
+    const user = await this.userRepository.findOne({ where: { id } });
     if (!user) {
-      throw new UnauthorizedException('Credenciais inválidas');
+      return null;
     }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Credenciais inválidas');
-    }
-
-    const payload = { email: user.email, id: user.id };
-    const token = jwt.sign(payload, 'masterkey', { expiresIn: '1h' });
-
-    return { token };
+    const { password: _password, ...result } = user;
+    return result;
   }
 
   async findByEmail(email: string): Promise<User | undefined> {
-    return await this.userRepository.findOne({ where: { email } });
+    return this.userRepository.findOne({ where: { email } });
   }
 
-  async findById(id: number): Promise<User> {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user) {
-      throw new NotFoundException(`Usuário com ID ${id} não encontrado.`);
-    }
-    return user;
+  async findById(id: number): Promise<User | null> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['consultationsAsClient', 'consultationsAsProfessional'], 
+    });
+    return user || null;
   }
 }
