@@ -25,7 +25,7 @@ import {
       
       const user = await this.userRepository.findOne({ 
         where: { email },
-        select: ['id'] // Apenas seleciona o ID para melhor performance
+        select: ['id'] 
       });
       
       return !user;
