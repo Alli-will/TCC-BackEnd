@@ -1,10 +1,4 @@
-import {
-    registerDecorator,
-    ValidationOptions,
-    ValidatorConstraint,
-    ValidatorConstraintInterface,
-    ValidationArguments,
-  } from 'class-validator';
+import {registerDecorator,ValidationOptions,ValidatorConstraint,ValidatorConstraintInterface,ValidationArguments} from 'class-validator';
   import { Injectable } from '@nestjs/common';
   import { InjectRepository } from '@nestjs/typeorm';
   import { Repository } from 'typeorm';

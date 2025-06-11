@@ -1,16 +1,6 @@
-import { IsNotEmpty, IsString, IsOptional, IsEnum, IsIn } from 'class-validator';
+import { IsNotEmpty, IsString, IsArray, IsInt } from 'class-validator';
 
 export class CreateDiaryEntryDto {
-  static readonly DiscouragementReason = {
-    WORK: 'Trabalho',
-    FAMILY: 'Família',
-    HEALTH: 'Saúde',
-    RELATIONSHIPS: 'Relacionamentos',
-    FINANCE: 'Finanças',
-    STUDIES: 'Estudos',
-    LONELINESS: 'Solidão',
-    OTHER: 'Outro'
-  } as const;
 
   @IsNotEmpty()
   @IsString()
@@ -22,9 +12,10 @@ export class CreateDiaryEntryDto {
   @IsNotEmpty()
   @IsString()
   description: string;
+
+  @IsArray()
+  @IsNotEmpty()
+  @IsInt({ each: true })
+  reasonIds: number[];
   
-  @IsOptional()
-  @IsString()
-  @IsIn(Object.values(CreateDiaryEntryDto.DiscouragementReason))
-  reason_discouragement?: string;
 }

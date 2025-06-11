@@ -1,4 +1,4 @@
-import { IsDateString, IsEnum, IsNotEmpty, IsNumber, IsPositive } from 'class-validator';
+/*import { IsDateString, IsEnum, IsNotEmpty, IsNumber, IsPositive } from 'class-validator';
 
 export class CreateConsultDto {
   @IsDateString()
@@ -19,3 +19,4 @@ export class CreateConsultDto {
   @IsNotEmpty()
   professionalId: number;
 }
+*/

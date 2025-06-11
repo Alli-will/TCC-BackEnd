@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, ManyToMany, JoinTable } from 'typeorm';
 import { User } from '../../user/entity/user.entity';
+import { ReasonEmotion } from './reason-emotion.entity';
 
 @Entity()
 export class DiaryEntry {
@@ -15,13 +16,13 @@ export class DiaryEntry {
   @Column('text')
   description: string;
 
-  @Column()
-  @Column({ nullable: true })
-  reason_discouragement?: string;
-
   @CreateDateColumn()
-    created_at: Date;
+  created_at: Date;
 
   @ManyToOne(() => User, (user) => user.diaryEntries)
   user: User;
+
+  @ManyToMany(() => ReasonEmotion, (reason) => reason.diaryEntries, { eager: true })
+  @JoinTable()
+  reasons: ReasonEmotion[];
 }

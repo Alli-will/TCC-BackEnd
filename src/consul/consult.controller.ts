@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Put, Delete, UseGuards, Request, Param } from '@nestjs/common';
+/*import { Controller, Post, Body, Get, Put, Delete, UseGuards, Request, Param } from '@nestjs/common';
 import { ConsultService } from './consult.service';
 import { CreateConsultDto } from './Dto/CreateConsultDto';
 import { JwtAuthGuard } from '../auth/JwtAuthGuard';
@@ -53,3 +53,4 @@ export class ConsultController {
     return { message: 'Consulta cancelada com sucesso!' };
   }
 }
+  */

@@ -4,7 +4,7 @@ import { Like } from './like.entity';
 import { Comment } from './comment.entity';
 
 @Entity()
-export class Post {
+export class Feed {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -15,15 +15,15 @@ export class Post {
   content: string;
 
   @CreateDateColumn()
-    created_at: Date;
+  created_at: Date;
 
-  @ManyToOne(() => User, user => user.posts)
+  @ManyToOne(() => User, user => user.feeds)
   user: User;
 
-  @OneToMany(() => Like, like => like.post, { cascade: true })
+  @OneToMany(() => Like, like => like.feed, { cascade: true })
   likes: Like[];
 
-  @OneToMany(() => Comment, comment => comment.post, { cascade: true })
+  @OneToMany(() => Comment, comment => comment.feed, { cascade: true })
   comments: Comment[];
 }
 

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+/*import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Consult } from './entity/consult.entity';
 import { ConsultService } from './consult.service';
@@ -12,3 +12,4 @@ import { UserModule } from 'src/user/user.module';
   controllers: [ConsultController],
 })
 export class ConsultModule {}
+*/

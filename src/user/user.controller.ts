@@ -1,23 +1,56 @@
-import { Body, Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
+import {Controller,Post,Body,HttpCode,HttpStatus,Req,UseGuards,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user-dto';
+import { JwtAuthGuard } from '../auth/JwtAuthGuard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { UserRole } from './entity/user.entity';
 
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
-
-  @Post('create')
-  @HttpCode(HttpStatus.CREATED) 
-  async createUser(@Body() createUserDto: CreateUserDto) {
+  @Post('register-access')
+  @HttpCode(HttpStatus.CREATED)
+  async registerAccess(@Body() createUserDto: CreateUserDto) {
     try {
-      const createdUser = await this.userService.create(createUserDto);
+      const createdUser = await this.userService.createAccessUser(createUserDto);
       return {
-        message: 'Usuário Cadastrado com Sucesso!!',
-        user: createdUser, 
+        message: 'Usuário (acesso) criado com sucesso!',
+        user: createdUser,
       };
     } catch (error) {
       return {
-        message: 'Erro ao cadastrar usuário. Tente novamente mais tarde.',
+        message: 'Erro ao criar usuário de acesso.',
+        error: error.response || error.message,
+      };
+    }
+  }
+  @Post('create-collaborator')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @Roles(UserRole.ADMIN)
+  async createCollaborator(@Body() createUserDto: CreateUserDto, @Req() req) {
+    //console.log('DTO no controller:', dto);
+    console.log('Usuário autenticado:', req.user);
+    try {
+      const creatorUser = req.user;
+      const companyId = creatorUser.companyId;
+      if (!companyId) {
+        return {
+          message: 'Usuário não está vinculado a nenhuma empresa.',
+        };
+      }
+
+      const createdUser = await this.userService.create(createUserDto, creatorUser.id);
+
+      return {
+        message: 'Colaborador cadastrado com sucesso!',
+        user: createdUser,
+      };
+    } catch (error) {
+      return {
+        message: 'Erro ao cadastrar colaborador.',
         error: error.response || error.message,
       };
     }

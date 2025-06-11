@@ -1,6 +1,6 @@
-import { IsEmail, IsNotEmpty, IsString, IsStrongPassword, IsOptional, IsIn,  } from "class-validator";
+import { IsEmail, IsNotEmpty, IsString, IsStrongPassword, IsOptional, IsIn, isNotEmpty, IsNumber,  } from "class-validator";
 import { UserRole } from "../entity/user.entity";
-import { IsUniqueEmail } from "src/auth/unique-email.validator";
+import { IsUniqueEmail } from "../../auth/unique-email.validator";
 
 
 export class CreateUserDto {
@@ -27,9 +27,14 @@ export class CreateUserDto {
   password: string;
 
   @IsOptional()
+  companyId?: number; 
+
+  departmentId?: number;
+
+  /*@IsOptional()
   @IsIn(['client', 'psychologist', 'psychiatrist']) 
   role?: UserRole;
-  CLIENT: string;
+  CLIENT: string;*/
 
 }
 

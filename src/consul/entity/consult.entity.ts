@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+/*import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from '../../user/entity/user.entity';
 
 @Entity()
@@ -27,3 +27,4 @@ export class Consult {
   @UpdateDateColumn()
   updatedAt: Date;
 }
+  */

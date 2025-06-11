@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn } from 'typeorm';
-import { Post } from '../../post/entity/post.entity';
+import { Feed } from './feed.entity';
 import { User } from '../../user/entity/user.entity';
 
 @Entity()
@@ -10,8 +10,8 @@ export class Like {
   @CreateDateColumn()
     created_at: Date;
 
-  @ManyToOne(() => Post, post => post.likes)
-  post: Post;
+  @ManyToOne(() => Feed, feed => feed.likes)
+  feed: Feed;
 
   @ManyToOne(() => User, user => user.likes)
   user: User;

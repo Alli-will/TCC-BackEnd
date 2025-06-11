@@ -6,14 +6,26 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from './user/user.module';
 import { User } from './user/entity/user.entity';
 import { AuthModule } from './auth/auth.module';
-import { DiaryModule } from './DiaryEntry/diary.module';
-import { DiaryEntry } from './DiaryEntry/entity/Diary.entity';
-import { PostModule} from './post/posts.module';
-import { Post } from './post/entity/post.entity'
-import { ConsultModule } from './consul/consult.module';
-import { Consult } from './consul/entity/consult.entity';
-import { Comment } from './post/entity/comment.entity';
-import { Like } from './post/entity/like.entity';
+import { DiaryModule } from './DiaryEntry/Diary/diary.module';
+import { DiaryEntry } from './DiaryEntry/entity/Diary-entry.entity';
+import { FeedModule} from './Feed/feed.module';
+import { Feed } from './Feed/entity/feed.entity'
+//import { ConsultModule } from './consul/consult.module';
+//import { Consult } from './consul/entity/consult.entity';
+import { Comment } from './Feed/entity/comment.entity';
+import { Like } from './Feed/entity/like.entity';
+import { Company } from './company/entity/company.entity';
+import { CompanyModule } from './company/company.module';
+import { ReasonEmotionService } from './DiaryEntry/ReasonEmotion/reason-emotion.service';
+import { ReasonEmotionController } from './DiaryEntry/ReasonEmotion/reason-emotion.controller';
+import { ReasonEmotionModule } from './DiaryEntry/ReasonEmotion/reason-emotion.module';
+import { ReasonEmotion } from './DiaryEntry/entity/reason-emotion.entity';
+import { Notification } from './notification/entity/notification.entity';
+import { NotificationModule } from './notification/notification.module';
+import { DepartmentModule } from './department/department.module';
+import { Department } from './department/entity/department.entity';
+
+
 
 
 @Module({
@@ -28,22 +40,24 @@ import { Like } from './post/entity/like.entity';
           username: ConfigService.get('DB_USERNAME'),
           password: ConfigService.get('DB_PASSWORD'),
           database: ConfigService.get('DB_DATABASE'),
-          entities: [User,DiaryEntry,Post,Consult,Comment,Like],
+          entities: [User,DiaryEntry,Feed,/*Consult*/,Comment,Like,Company,ReasonEmotion,Notification,Department],
           synchronize: true,
+          
         }),
         inject: [ConfigService],
     }), 
       UserModule,
       AuthModule,
       DiaryModule,
-      PostModule,
-      ConsultModule
+      FeedModule,
+     // ConsultModule
+      CompanyModule,
+      ReasonEmotionModule,
+      NotificationModule,
+      DepartmentModule,
   ],
-  controllers: [AppController],
-  providers: [AppService, ],
-
-
-  
+  controllers: [AppController, ReasonEmotionController],
+  providers: [AppService, ReasonEmotionService],  
 })
 
 export class AppModule {}

@@ -1,20 +1,27 @@
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { DiaryEntry } from "../../DiaryEntry/entity/Diary.entity";
-import { Post } from '../../post/entity/post.entity'; 
-import { Consult } from '../../consul/entity/consult.entity'; 
-import { Like } from '../../post/entity/like.entity';
-import { Comment } from '../../post/entity/comment.entity';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique } from "typeorm";
+import { DiaryEntry } from "../../DiaryEntry/entity/Diary-entry.entity";
+import { Feed } from '../../Feed/entity/feed.entity';
+import { Like } from '../../Feed/entity/like.entity';
+import { Comment } from '../../Feed/entity/comment.entity';
+import { Company } from '../../company/entity/company.entity'; 
+import { Notification } from '../../notification/entity/notification.entity';
+import { Department } from "../../department/entity/department.entity";
+
+
 
 export enum UserRole {
-  CLIENT = 'client',
-  PSYCHOLOGIST = 'psychologist',
-  PSYCHIATRIST = 'psychiatrist',
+  ADMIN = 'admin',
+  EMPLOYEE = 'employee',
 }
 
 @Entity()
+@Unique((['company', 'internal_id']))
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column()
+  internal_id: number;
 
   @Column()
   first_Name: string;
@@ -31,28 +38,33 @@ export class User {
   @Column({
     type: 'enum',
     enum: UserRole,
-    default: UserRole.CLIENT,
+    default: UserRole.EMPLOYEE,
   })
   role: UserRole;
 
   @CreateDateColumn()
-    created_at: Date;
+  created_at: Date;
+
+
+  @ManyToOne(() => Company, { nullable: false })
+  @JoinColumn({ name: 'companyId' })
+  company: Company;
 
   @OneToMany(() => DiaryEntry, diaryEntry => diaryEntry.user)
   diaryEntries: DiaryEntry[];
 
-  @OneToMany(() => Post, post => post.user)
-  posts: Post[];
-
-  @OneToMany(() => Consult, consult => consult.client)
-  consultationsAsClient: Consult[];
-
-  @OneToMany(() => Consult, consult => consult.professional)
-  consultationsAsProfessional: Consult[];
+  @OneToMany(() => Feed, feed => feed.user)
+  feeds: Feed[];
 
   @OneToMany(() => Like, like => like.user)
   likes: Like[];
 
   @OneToMany(() => Comment, comment => comment.user)
   comments: Comment[];
+
+  @OneToMany(() => Notification, (notification) => notification.user)
+  notifications: Notification[];
+
+  @ManyToOne(() => Department, (department) => department.users, { nullable: true })
+  department: Department;
 }

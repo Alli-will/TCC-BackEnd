@@ -5,10 +5,16 @@ import { UserModule } from '../user/user.module';
 import { JwtStrategy } from './jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
 import { DiaryService } from './diary/diary.service';
+import { JwtModule } from '@nestjs/jwt';
 
 
 @Module({
-  imports: [UserModule, PassportModule], 
+  imports: [PassportModule,
+    JwtModule.register({
+    secret:'masterkey',
+    signOptions: { expiresIn: '1h' }, 
+  }),UserModule,
+], 
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, DiaryService],
 })
