@@ -7,10 +7,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   
-  app.enableCors({
-    origin: 'http://localhost:4200', 
-    methods: 'GET,POST'
-  });
+  app.enableCors();
 
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
@@ -22,7 +19,8 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT || 3000;
+  await app.listen(port, '0.0.0.0');
 }
 
 bootstrap();
