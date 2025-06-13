@@ -1,6 +1,6 @@
 import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { NotificationService } from './notification.service';
-import { JwtAuthGuard } from '../auth/jwtauthguard';
+import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../user/entity/user.entity';
