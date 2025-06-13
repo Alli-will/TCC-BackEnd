@@ -1,0 +1,40 @@
+# Etapa 1: Build da aplicação
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copia arquivos principais
+COPY package*.json ./
+
+# Instala dependências (incluindo dev)
+RUN npm install
+
+# Copia o restante do projeto
+COPY . .
+
+# Compila o projeto NestJS para dist/
+RUN npm run build
+
+
+# Etapa 2: Imagem final para produção
+FROM node:18-alpine AS production
+
+WORKDIR /app
+
+# Apenas dependências de produção
+COPY package*.json ./
+RUN npm install --omit=dev
+
+# Copia os arquivos compilados da etapa anterior
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+
+# Inclui arquivos extras se necessários (ex: .env, migrations)
+COPY --from=builder /app/ormconfig.js ./ormconfig.js
+COPY --from=builder /app/src/data-source.ts ./src/data-source.ts
+
+# Expõe a porta da aplicação
+EXPOSE 3000
+
+# Comando para iniciar a aplicação
+CMD ["node", "dist/main"]
