@@ -4,7 +4,7 @@ import { AuthController } from './auth.controller';
 import { UserModule } from '../user/user.module';
 import { JwtStrategy } from './jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
-import { DiaryService } from './diary/diary.service';
+import { DiaryService } from '../DiaryEntry/Diary/diary.service';
 import { JwtModule } from '@nestjs/jwt';
 
 
