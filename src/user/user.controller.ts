@@ -5,7 +5,11 @@ import { CreateUserDto } from './dto/create-user-dto';
 import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+<<<<<<< HEAD
 import { UserRole } from './entity/user.entity';
+=======
+import { UserRole } from '../auth/roles.decorator';
+>>>>>>> b64d5f8 (migraçao do demonio do typeORM para unicornio colorido do prisma)
 
 @Controller('user')
 export class UserController {

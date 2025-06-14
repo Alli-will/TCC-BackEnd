@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 import { ReasonEmotion } from './entity/reason-emotion.entity';
@@ -32,6 +33,16 @@ const AppDataSource = new DataSource({
 async function seed() {
   await AppDataSource.initialize();
 
+=======
+import { PrismaClient } from '@prisma/client';
+import { config } from 'dotenv';
+
+config();
+
+const prisma = new PrismaClient();
+
+async function seed() {
+>>>>>>> b64d5f8 (migraçao do demonio do typeORM para unicornio colorido do prisma)
   const reasons = [
     'Trabalho',
     'Família',
@@ -43,6 +54,7 @@ async function seed() {
     'Outro',
   ];
 
+<<<<<<< HEAD
   const repo = AppDataSource.getRepository(ReasonEmotion);
 
   for (const reason of reasons) {
@@ -50,14 +62,28 @@ async function seed() {
     if (!exists) {
       const newReason = repo.create({ reason });
       await repo.save(newReason);
+=======
+  for (const reason of reasons) {
+    const exists = await prisma.reasonEmotion.findUnique({ where: { reason } });
+    if (!exists) {
+      await prisma.reasonEmotion.create({ data: { reason } });
+>>>>>>> b64d5f8 (migraçao do demonio do typeORM para unicornio colorido do prisma)
     }
   }
 
   console.log('Seed finalizado.');
+<<<<<<< HEAD
   await AppDataSource.destroy();
+=======
+  await prisma.$disconnect();
+>>>>>>> b64d5f8 (migraçao do demonio do typeORM para unicornio colorido do prisma)
 }
 
 seed().catch((err) => {
   console.error('Erro ao executar seed:', err);
+<<<<<<< HEAD
   AppDataSource.destroy();
+=======
+  prisma.$disconnect();
+>>>>>>> b64d5f8 (migraçao do demonio do typeORM para unicornio colorido do prisma)
 });

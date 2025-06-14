@@ -18,11 +18,15 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+<<<<<<< HEAD
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "postinstall": "npm run migration:run",
     "migration:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate -d src/ormconfig.ts",
     "migration:run": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d src/ormconfig.ts",
     "migration:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d src/ormconfig.ts"
+=======
+    "seed": "ts-node src/DiaryEntry/seed.ts"
+>>>>>>> b64d5f8 (migraçao do demonio do typeORM para unicornio colorido do prisma)
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
@@ -33,6 +37,10 @@
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/serve-static": "^4.0.2",
     "@nestjs/typeorm": "^10.0.2",
+<<<<<<< HEAD
+=======
+    "@prisma/client": "^6.9.0",
+>>>>>>> b64d5f8 (migraçao do demonio do typeORM para unicornio colorido do prisma)
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
@@ -40,6 +48,10 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.13.0",
+<<<<<<< HEAD
+=======
+    "prisma": "^6.9.0",
+>>>>>>> b64d5f8 (migraçao do demonio do typeORM para unicornio colorido do prisma)
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.20"

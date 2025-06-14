@@ -1,0 +1,118 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  admin
+  employee
+}
+
+model User {
+  id            Int           @id @default(autoincrement())
+  internal_id   Int
+  first_Name    String
+  last_Name     String
+  email         String        @unique
+  password      String
+  role          UserRole      @default(employee)
+  created_at    DateTime      @default(now())
+  companyId     Int
+  company       Company       @relation(fields: [companyId], references: [id])
+  diaryEntries  DiaryEntry[]
+  feeds         Feed[]
+  likes         Like[]
+  comments      Comment[]
+  notifications Notification[]
+  departmentId  Int?
+  department    Department?   @relation(fields: [departmentId], references: [id])
+}
+
+model Company {
+  id           Int          @id @default(autoincrement())
+  name         String
+  cnpj         String       @unique
+  address      String
+  addressZipCode Int
+  neighborhood String
+  municipality String
+  state        String
+  country      String
+  phone        Int
+  users        User[]
+  departments  Department[]
+}
+
+model Department {
+  id       Int      @id @default(autoincrement())
+  name     String
+  users    User[]
+  companyId Int
+  company  Company @relation(fields: [companyId], references: [id])
+}
+
+model DiaryEntry {
+  id          Int             @id @default(autoincrement())
+  date        DateTime
+  emotion     String
+  description String
+  created_at  DateTime        @default(now())
+  userId      Int
+  user        User            @relation(fields: [userId], references: [id])
+  reasons     ReasonEmotion[] @relation("DiaryEntryToReasonEmotion")
+}
+
+model ReasonEmotion {
+  id          Int             @id @default(autoincrement())
+  reason      String          @unique
+  diaryEntries DiaryEntry[]   @relation("DiaryEntryToReasonEmotion")
+}
+
+model Feed {
+  id        Int       @id @default(autoincrement())
+  title     String
+  content   String
+  created_at DateTime @default(now())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  likes     Like[]
+  comments  Comment[]
+}
+
+model Like {
+  id         Int      @id @default(autoincrement())
+  created_at DateTime @default(now())
+  feedId     Int
+  feed       Feed     @relation(fields: [feedId], references: [id])
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model Comment {
+  id         Int      @id @default(autoincrement())
+  content    String
+  created_at DateTime @default(now())
+  feedId     Int
+  feed       Feed     @relation(fields: [feedId], references: [id])
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id         Int      @id @default(autoincrement())
+  message    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

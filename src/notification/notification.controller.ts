@@ -3,7 +3,11 @@ import { NotificationService } from './notification.service';
 import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+<<<<<<< HEAD
 import { UserRole } from '../user/entity/user.entity';
+=======
+import { UserRole } from '../auth/roles.decorator';
+>>>>>>> b64d5f8 (migraçao do demonio do typeORM para unicornio colorido do prisma)
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard, RolesGuard)
