@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CreateDiaryEntryDto } from '../dto/Create-Diary-Entry-Dto';
+import { CreateDiaryEntryDto } from './dto/Create-Diary-Entry-Dto';
 import { NotificationService } from '../../notification/notification.service';
 
 @Injectable()

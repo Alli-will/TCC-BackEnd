@@ -1,6 +1,6 @@
 import { Controller, Post, Body, UseGuards, Request, Get } from '@nestjs/common';
 import { DiaryService } from './diary.service';
-import { CreateDiaryEntryDto } from '../dto/Create-Diary-Entry-Dto';
+import { CreateDiaryEntryDto } from './dto/Create-Diary-Entry-Dto';
 import { JwtAuthGuard } from '../../auth/JwtAuthGuard';
 
 @Controller('diary')
