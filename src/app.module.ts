@@ -36,12 +36,6 @@ import { Department } from './department/entity/department.entity';
         useFactory: (configService: ConfigService) => ({
           type: 'postgres',
           url: configService.get<string>('DATABASE_URL'),
-
-          //host: configService.get('DB_HOST'),
-          //port: +ConfigService.get('DB_PORT'),
-          //username: ConfigService.get('DB_USERNAME'),
-          //password: ConfigService.get('DB_PASSWORD'),
-          //database: ConfigService.get('DB_DATABASE'),
           entities: [User,DiaryEntry,Feed,/*Consult*/,Comment,Like,Company,ReasonEmotion,Notification,Department],
           synchronize: true,
           
