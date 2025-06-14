@@ -14,5 +14,4 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 # Copia o arquivo ormconfig.json se existir
 COPY --from=builder /app/ormconfig.json ./ormconfig.json
-EXPOSE 3000
 CMD npm run migration:run && node dist/main
