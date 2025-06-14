@@ -54,13 +54,19 @@ export class DiaryService {
       const isEmocaoNegativa = emocoesNegativas.includes(emotion.toLowerCase());
 
       if (hasPalavraChave && hasMotivoSensivel && isEmocaoNegativa) {
+        // Busca o departamento do usuário
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          include: { department: true },
+        });
+        const departamento = user?.department?.name || 'Desconhecido';
         const admins = await this.prisma.user.findMany({
           where: { role: 'admin' },
         });
 
         for (const admin of admins) {
           await this.notificationService.createNotification(
-            `Alerta: o usuário #${userId} registrou uma entrada com sinais de sofrimento.`,
+            `Alerta: um colaborador do departamento ${departamento} registrou uma entrada com sinais de sofrimento.`,
             admin.id,
           );
         }
