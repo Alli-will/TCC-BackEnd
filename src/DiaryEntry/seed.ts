@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 import { ReasonEmotion } from './entity/reason-emotion.entity';
-import { DiaryEntry} from './entity/Diary-entry.entity';
+import { DiaryEntry } from './entity/Diary-entry.entity';
 import { User } from '../user/entity/user.entity';
 import { Company } from '../company/entity/company.entity';
 import { Feed } from '../Feed/entity/feed.entity';
@@ -14,12 +14,18 @@ config();
 
 const AppDataSource = new DataSource({
   type: 'postgres',
-  host: process.env.DB_HOST,
-  port: +process.env.DB_PORT,
-  username: process.env.DB_USERNAME,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE,
-  entities: [ReasonEmotion, DiaryEntry, User, Company,Feed,Comment,Like,Notification,Department],
+  url: process.env.DATABASE_URL,
+  entities: [
+    ReasonEmotion,
+    DiaryEntry,
+    User,
+    Company,
+    Feed,
+    Comment,
+    Like,
+    Notification,
+    Department,
+  ],
   synchronize: false,
 });
 
