@@ -1,10 +1,10 @@
-import { IsOptional, IsString, IsDate, IsInt } from 'class-validator';
+import { IsOptional, IsString, IsDate, IsInt, ValidateIf } from 'class-validator';
 
 export class CreateKnowledgeDto {
-  @IsOptional()
+  @ValidateIf(o => !o.url)
   attachment?: Buffer;
-
-  @IsOptional()
+  
+  @ValidateIf(o => !o.attachment)
   @IsString()
   url?: string;
 
