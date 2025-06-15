@@ -100,13 +100,10 @@ export class UserService {
   }
 
   async findByEmail(email: string) {
-    const user = await this.prisma.user.findUnique({
+    return await this.prisma.user.findUnique({
       where: { email },
       include: { company: true },
     });
-    if (!user) return null;
-    const { password, ...result } = user;
-    return result;
   }
 
   async findById(id: number) {
