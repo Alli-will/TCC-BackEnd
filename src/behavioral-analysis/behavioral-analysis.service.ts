@@ -17,13 +17,13 @@ export class BehavioralAnalysisService {
 
   async findOne(id: number) {
     const analysis = await this.prisma.behavioralAnalysis.findUnique({ where: { id } });
-    if (!analysis) throw new NotFoundException('Behavioral analysis not found');
+    if (!analysis) throw new NotFoundException('Análise comportamental não encontrada');
     return analysis;
   }
 
   async update(id: number, dto: UpdateBehavioralAnalysisDto) {
     const analysis = await this.prisma.behavioralAnalysis.findUnique({ where: { id } });
-    if (!analysis) throw new NotFoundException('Behavioral analysis not found');
+    if (!analysis) throw new NotFoundException('Análise comportamental não encontrada');
     return this.prisma.behavioralAnalysis.update({ where: { id }, data: dto });
   }
 

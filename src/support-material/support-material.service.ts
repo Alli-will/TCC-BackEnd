@@ -17,19 +17,19 @@ export class SupportMaterialService {
 
   async findOne(id: number) {
     const material = await this.prisma.supportMaterial.findFirst({ where: { id, deleted_at: null } });
-    if (!material) throw new NotFoundException('Support material not found');
+    if (!material) throw new NotFoundException('Material de apoio não encontrado');
     return material;
   }
 
   async update(id: number, data: UpdateSupportMaterialDto) {
     const material = await this.prisma.supportMaterial.findFirst({ where: { id, deleted_at: null } });
-    if (!material) throw new NotFoundException('Support material not found');
+    if (!material) throw new NotFoundException('Material de apoio não encontrado');
     return this.prisma.supportMaterial.update({ where: { id }, data });
   }
 
   async remove(id: number) {
     const material = await this.prisma.supportMaterial.findFirst({ where: { id, deleted_at: null } });
-    if (!material) throw new NotFoundException('Support material not found');
+    if (!material) throw new NotFoundException('Material de apoio não encontrado');
     return this.prisma.supportMaterial.update({ where: { id }, data: { deleted_at: new Date() } });
   }
 }
