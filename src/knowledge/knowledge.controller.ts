@@ -11,15 +11,18 @@ export class KnowledgeController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  @UseInterceptors(FileInterceptor('attachment'))
-  create(
+  @UseInterceptors(FileInterceptor('anexo'))
+  async create(
     @Body() dto: CreateKnowledgeDto,
     @UploadedFile() file: Express.Multer.File,
     @Req() req: any
   ) {
     const userId = req.user.id;
+    if (!file && !dto.url) {
+      return { statusCode: 400, message: 'anexo ou url deve ser informado.' };
+    }
     if (file) {
-      dto.attachment = file.buffer;
+      dto.anexo = file.buffer;
     }
     return this.knowledgeService.create(dto, userId);
   }

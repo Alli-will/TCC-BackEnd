@@ -2,7 +2,7 @@ import { IsOptional, IsString } from 'class-validator';
 
 export class UpdateKnowledgeDto {
   @IsOptional()
-  attachment?: Buffer;
+  anexo?: Buffer;
 
   @IsOptional()
   @IsString()
