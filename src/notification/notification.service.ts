@@ -14,6 +14,19 @@ export class NotificationService {
     });
   }
 
+  async notifyAllUsers(message: string) {
+    const users = await this.prisma.user.findMany();
+    const notifications = users.map(user =>
+      this.prisma.notification.create({
+        data: {
+          message,
+          user: { connect: { id: user.id } },
+        },
+      })
+    );
+    return Promise.all(notifications);
+  }
+
   async findAllForAdmin() {
     return await this.prisma.notification.findMany({
       include: { user: true },

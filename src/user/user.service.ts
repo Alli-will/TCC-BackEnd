@@ -94,22 +94,28 @@ export class UserService {
 
   async findOne(id: number) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) return null;
+    if (!user) throw new BadRequestException('Usuário não encontrado.');
     const { password, ...result } = user;
     return result;
   }
 
   async findByEmail(email: string) {
-    return await this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { email },
       include: { company: true },
     });
+    if (!user) return null;
+    const { password, ...result } = user;
+    return result;
   }
 
   async findById(id: number) {
-    return await this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id },
       include: { company: true },
     });
+    if (!user) return null;
+    const { password, ...result } = user;
+    return result;
   }
 }

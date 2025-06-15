@@ -30,12 +30,10 @@ model User {
   companyId     Int
   company       Company       @relation(fields: [companyId], references: [id])
   diaryEntries  DiaryEntry[]
-  feeds         Feed[]
-  likes         Like[]
-  comments      Comment[]
   notifications Notification[]
   departmentId  Int?
   department    Department?   @relation(fields: [departmentId], references: [id])
+  knowledges    Knowledge[]   @relation("UserToKnowledge")
 }
 
 model Company {
@@ -78,36 +76,6 @@ model ReasonEmotion {
   diaryEntries DiaryEntry[]   @relation("DiaryEntryToReasonEmotion")
 }
 
-model Feed {
-  id        Int       @id @default(autoincrement())
-  title     String
-  content   String
-  created_at DateTime @default(now())
-  userId    Int
-  user      User      @relation(fields: [userId], references: [id])
-  likes     Like[]
-  comments  Comment[]
-}
-
-model Like {
-  id         Int      @id @default(autoincrement())
-  created_at DateTime @default(now())
-  feedId     Int
-  feed       Feed     @relation(fields: [feedId], references: [id])
-  userId     Int
-  user       User     @relation(fields: [userId], references: [id])
-}
-
-model Comment {
-  id         Int      @id @default(autoincrement())
-  content    String
-  created_at DateTime @default(now())
-  feedId     Int
-  feed       Feed     @relation(fields: [feedId], references: [id])
-  userId     Int
-  user       User     @relation(fields: [userId], references: [id])
-}
-
 model Notification {
   id         Int      @id @default(autoincrement())
   message    String
@@ -115,4 +83,34 @@ model Notification {
   createdAt  DateTime @default(now())
   userId     Int
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Knowledge {
+  id              Int      @id @default(autoincrement())
+  attachment      Bytes?   // Arquivo binário opcional
+  url             String?  // URL opcional
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  deleted_at      DateTime?
+  createdBy_user  Int
+  createdBy       User     @relation("UserToKnowledge", fields: [createdBy_user], references: [id])
+}
+
+model SupportMaterial {
+  id                Int      @id @default(autoincrement())
+  attachment        Bytes?
+  url               String?
+  emotion           String?
+  reason_emotion_id Int?
+  created_at        DateTime @default(now())
+  deleted_at        DateTime?
+}
+
+model BehavioralAnalysis {
+  id                Int      @id @default(autoincrement())
+  text              String
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  deleted_at        DateTime?
+  created_by_user_id Int
 }
