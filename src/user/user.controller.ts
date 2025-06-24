@@ -1,4 +1,4 @@
-import {Controller,Post,Body,HttpCode,HttpStatus,Req,UseGuards,
+import {Controller,Post,Body,HttpCode,HttpStatus,Req,UseGuards,Get,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user-dto';
@@ -54,5 +54,9 @@ export class UserController {
         error: error.response || error.message,
       };
     }
+  }
+  @Get()
+  async findAll() {
+    return this.userService.findAll();
   }
 }

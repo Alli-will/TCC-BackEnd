@@ -14,6 +14,8 @@ import { DepartmentModule } from './department/department.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { SupportMaterialModule } from './support-material/support-material.module';
 import { BehavioralAnalysisModule } from './behavioral-analysis/behavioral-analysis.module';
+import { DashboardModule } from './Dashboard/dashboard.module';
+import { DiaryInsightsModule } from './DiaryEntry/metrics/diary-insights.module';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { BehavioralAnalysisModule } from './behavioral-analysis/behavioral-analy
     KnowledgeModule,
     SupportMaterialModule,
     BehavioralAnalysisModule,
+    DashboardModule,
+    DiaryInsightsModule,
   ],
   controllers: [AppController, ReasonEmotionController],
   providers: [AppService, ReasonEmotionService],

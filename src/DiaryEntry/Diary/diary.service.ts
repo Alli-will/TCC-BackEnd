@@ -105,4 +105,119 @@ export class DiaryService {
 
     return !!entry;
   }
+
+  async findAllDiaries() {
+    return await this.prisma.diaryEntry.findMany({
+      include: {
+        user: { include: { department: true } },
+        reasons: true,
+      },
+    });
+  }
+
+  async getInsights(userId: number) {
+    const entries = await this.findEntriesByUserId(userId);
+    if (!entries || entries.length === 0) {
+      return {
+        emocaoMaisFrequente: '-',
+        nivelEnergia: '-',
+        nivelEstresse: '-',
+      };
+    }
+    // Contar emoções
+    const contagem: { [emocao: string]: number } = {};
+    let energiaTotal = 0;
+    let estresseTotal = 0;
+    for (const entrada of entries) {
+      const emocao = entrada.emotion || 'Sem emoção';
+      contagem[emocao] = (contagem[emocao] || 0) + 1;
+      // Energia: feliz=2, neutro=1, triste/ansioso/irritado=0
+      if (emocao === 'feliz') energiaTotal += 2;
+      else if (emocao === 'neutro') energiaTotal += 1;
+      // Estresse: ansioso/irritado contam como 1
+      if (emocao === 'ansioso' || emocao === 'irritado') estresseTotal += 1;
+    }
+    // Emoção mais frequente
+    const emocaoMaisFrequente = Object.keys(contagem).reduce((a, b) => contagem[a] > contagem[b] ? a : b);
+    // Nível de energia
+    const mediaEnergia = energiaTotal / entries.length;
+    let nivelEnergia = '-';
+    if (mediaEnergia >= 1.5) nivelEnergia = 'Alta';
+    else if (mediaEnergia >= 1) nivelEnergia = 'Média';
+    else nivelEnergia = 'Baixa';
+    // Nível de estresse
+    const percEstresse = estresseTotal / entries.length;
+    let nivelEstresse = '-';
+    if (percEstresse >= 0.6) nivelEstresse = 'Alto';
+    else if (percEstresse >= 0.3) nivelEstresse = 'Médio';
+    else nivelEstresse = 'Baixo';
+    return {
+      emocaoMaisFrequente,
+      nivelEnergia,
+      nivelEstresse,
+    };
+  }
+
+  async getGraphData(userId: number, period: string) {
+    const entries = await this.findEntriesByUserId(userId);
+    let labels: string[] = [];
+    let agrupado: { [label: string]: { [emocao: string]: number } } = {};
+    let entradasFiltradas = entries;
+    const hoje = new Date();
+    if (period === 'semana') {
+      const umaSemanaAtras = new Date();
+      umaSemanaAtras.setDate(hoje.getDate() - 6);
+      entradasFiltradas = entries.filter((entrada) => {
+        if (!entrada.date) return false;
+        const data = new Date(entrada.date);
+        return data >= umaSemanaAtras && data <= hoje;
+      });
+      for (const entrada of entradasFiltradas) {
+        const data = entrada.date ? entrada.date.toISOString().split('T')[0] : 'Sem data';
+        const emocao = entrada.emotion || 'Sem emoção';
+        if (!agrupado[data]) agrupado[data] = {};
+        agrupado[data][emocao] = (agrupado[data][emocao] || 0) + 1;
+      }
+      labels = Object.keys(agrupado).sort();
+    } else if (period === 'mes') {
+      const anoAtual = hoje.getFullYear();
+      const mesAtual = hoje.getMonth() + 1;
+      entradasFiltradas = entries.filter((entrada) => {
+        if (!entrada.date) return false;
+        const data = new Date(entrada.date);
+        return data.getFullYear() === anoAtual && (data.getMonth() + 1) === mesAtual;
+      });
+      for (const entrada of entradasFiltradas) {
+        const data = entrada.date ? entrada.date.toISOString().split('T')[0] : 'Sem data';
+        const emocao = entrada.emotion || 'Sem emoção';
+        if (!agrupado[data]) agrupado[data] = {};
+        agrupado[data][emocao] = (agrupado[data][emocao] || 0) + 1;
+      }
+      labels = Object.keys(agrupado).sort();
+    } else if (period === 'ano') {
+      for (const entrada of entries) {
+        if (!entrada.date) continue;
+        const ano = new Date(entrada.date).getFullYear().toString();
+        const emocao = entrada.emotion || 'Sem emoção';
+        if (!agrupado[ano]) agrupado[ano] = {};
+        agrupado[ano][emocao] = (agrupado[ano][emocao] || 0) + 1;
+      }
+      labels = Object.keys(agrupado).sort();
+    }
+    // Obter todas as emoções únicas
+    const emocoesSet = new Set<string>();
+    labels.forEach((label) => {
+      Object.keys(agrupado[label]).forEach((e) => emocoesSet.add(e));
+    });
+    const emocoes = Array.from(emocoesSet);
+    // Montar datasets para cada emoção
+    const datasets = emocoes.map((emocao) => ({
+      label: emocao,
+      data: labels.map((label) => agrupado[label][emocao] || 0),
+    }));
+    return {
+      labels,
+      datasets,
+    };
+  }
 }

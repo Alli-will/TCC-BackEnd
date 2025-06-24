@@ -2,6 +2,8 @@ import { Controller, Post, Body, UseGuards, Request, Get } from '@nestjs/common'
 import { DiaryService } from './diary.service';
 import { CreateDiaryEntryDto } from './dto/Create-Diary-Entry-Dto';
 import { JwtAuthGuard } from '../../auth/JwtAuthGuard';
+import { Roles, UserRole } from '../../auth/roles.decorator';
+import { RolesGuard } from '../../auth/roles.guard';
 
 @Controller('diary')
 export class DiaryController {
@@ -29,5 +31,10 @@ export class DiaryController {
   return { hasEntry };
 }
 
-
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('all')
+  @Roles(UserRole.ADMIN)
+  async findAllDiaries() {
+    return this.diaryService.findAllDiaries();
+  }
 }
