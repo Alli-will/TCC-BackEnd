@@ -2,29 +2,31 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { UserService } from '../user/user.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private userService: UserService) {
+  constructor(
+    private userService: UserService,
+    private configService: ConfigService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: 'masterkey',
+      secretOrKey: configService.get<string>('JWT_SECRET'),
     });
   }
 
-  async validate(payload: any): Promise<{ id: number; email: string; role: string; companyId: number}> {
-   // console.log('payload:', payload);
+  async validate(payload: any): Promise<{ id: number; email: string; role: string; companyId: number }> {
     const user = await this.userService.findById(payload.sub);
-    //console.log('user:', user);
     if (!user) {
       throw new UnauthorizedException('Token inválido');
     }
-//console.log(user);
-
-    return { id: user.id,
+    return {
+      id: user.id,
       email: user.email,
       role: user.role,
-      companyId: user.company?.id };
+      companyId: user.company?.id,
+    };
   }
 }

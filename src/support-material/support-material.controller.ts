@@ -1,9 +1,11 @@
-import { Controller, Post, Body, Get, Param, Delete, Patch, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Delete, Patch, UseInterceptors, UploadedFile, BadRequestException, UseGuards } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SupportMaterialService } from './support-material.service';
 import { CreateSupportMaterialDto } from './dto/create-support-material.dto';
 import { UpdateSupportMaterialDto } from './dto/update-support-material.dto';
+import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('support-material')
 export class SupportMaterialController {
   constructor(private readonly service: SupportMaterialService) {}

@@ -1,15 +1,15 @@
 import { Controller, Post, Body, Get, Param, Delete, Req, UseGuards, Patch, UseInterceptors, UploadedFile, Query } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 import { KnowledgeService } from './knowledge.service';
 import { CreateKnowledgeDto } from './dto/create-knowledge.dto';
 import { UpdateKnowledgeDto } from './dto/update-knowledge.dto';
-import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 import { FileInterceptor } from '@nestjs/platform-express';
 
+@UseGuards(JwtAuthGuard)
 @Controller('knowledge')
 export class KnowledgeController {
   constructor(private readonly knowledgeService: KnowledgeService) {}
 
-  @UseGuards(JwtAuthGuard)
   @Post()
   @UseInterceptors(FileInterceptor('anexo'))
   async create(

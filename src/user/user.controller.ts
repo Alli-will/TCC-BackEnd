@@ -1,4 +1,4 @@
-import {Controller,Post,Body,HttpCode,HttpStatus,Req,UseGuards,Get,
+import {Controller,Post,Body,HttpCode,HttpStatus,Req,UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user-dto';
@@ -6,6 +6,7 @@ import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UserRole } from '../auth/roles.decorator';
+
 
 @Controller('user')
 export class UserController {
@@ -20,6 +21,16 @@ export class UserController {
         user: createdUser,
       };
     } catch (error) {
+      // Se for erro de validação, retorna detalhes
+      if (error.getResponse && typeof error.getResponse === 'function') {
+        const response = error.getResponse();
+        if (response && response.message) {
+          return {
+            message: 'Erro ao criar usuário de acesso.',
+            details: response.message,
+          };
+        }
+      }
       return {
         message: 'Erro ao criar usuário de acesso.',
         error: error.response || error.message,
@@ -54,9 +65,5 @@ export class UserController {
         error: error.response || error.message,
       };
     }
-  }
-  @Get()
-  async findAll() {
-    return this.userService.findAll();
   }
 }

@@ -19,10 +19,11 @@ export class CreateUserDto {
   @IsNotEmpty()
   @IsStrongPassword({
     minLength: 8, 
-    minUppercase: 1, 
+    minUppercase: 0, 
     minLowercase: 1, 
     minNumbers: 1,
-  })
+    minSymbols: 0, 
+  },{message: 'A senha deve ter pelo menos 8 caracteres, incluindo 1 letra maiúscula, 1 letra minúscula e 1 número.'})
   password: string;
 
   @IsOptional()

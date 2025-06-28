@@ -37,4 +37,11 @@ export class DiaryController {
   async findAllDiaries() {
     return this.diaryService.findAllDiaries();
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('emotion-percentages')
+  @Roles(UserRole.ADMIN)
+  async getEmotionPercentages() {
+    return this.diaryService.getEmotionPercentages();
+  }
 }

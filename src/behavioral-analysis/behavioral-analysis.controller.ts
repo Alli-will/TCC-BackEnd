@@ -1,8 +1,10 @@
-import { Controller, Post, Body, Get, Param, Patch, Delete } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Delete, Patch, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 import { BehavioralAnalysisService } from './behavioral-analysis.service';
 import { CreateBehavioralAnalysisDto } from './dto/create-behavioral-analysis.dto';
 import { UpdateBehavioralAnalysisDto } from './dto/update-behavioral-analysis.dto';
 
+@UseGuards(JwtAuthGuard)
 @Controller('behavioral-analysis')
 export class BehavioralAnalysisController {
   constructor(private readonly service: BehavioralAnalysisService) {}

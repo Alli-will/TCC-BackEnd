@@ -32,6 +32,7 @@ import { DiaryInsightsModule } from './DiaryEntry/metrics/diary-insights.module'
     BehavioralAnalysisModule,
     DashboardModule,
     DiaryInsightsModule,
+    DashboardModule
   ],
   controllers: [AppController, ReasonEmotionController],
   providers: [AppService, ReasonEmotionService],

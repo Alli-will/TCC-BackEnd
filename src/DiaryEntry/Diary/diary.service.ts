@@ -220,4 +220,39 @@ export class DiaryService {
       datasets,
     };
   }
+
+  /**
+   * Retorna a porcentagem de cada emoção (triste, frustrado, neutro, tranquilo, realizado)
+   * nas entradas do diário. Ideal para indicadores circulares no dashboard.
+   */
+  async getEmotionPercentages() {
+    // Emoções padronizadas e seus emojis/labels
+    const EMOTIONS = [
+      { key: 'triste', label: 'Triste', emoji: '😢' },
+      { key: 'frustrado', label: 'Frustrado', emoji: '😠' },
+      { key: 'neutro', label: 'Neutro', emoji: '😐' },
+      { key: 'tranquilo', label: 'Tranquilo', emoji: '🙂' },
+      { key: 'realizado', label: 'Realizado', emoji: '😃' },
+    ];
+    // Busca todas as entradas
+    const entries = await this.prisma.diaryEntry.findMany();
+    const total = entries.length;
+    // Conta cada emoção
+    const counts: { [key: string]: number } = {};
+    for (const { emotion } of entries) {
+      const key = emotion?.toLowerCase();
+      if (EMOTIONS.some(e => e.key === key)) {
+        counts[key] = (counts[key] || 0) + 1;
+      }
+    }
+    // Monta resultado
+    const result = EMOTIONS.map(e => ({
+      key: e.key,
+      label: e.label,
+      emoji: e.emoji,
+      count: counts[e.key] || 0,
+      percent: total > 0 ? Math.round(((counts[e.key] || 0) / total) * 100) : 0,
+    }));
+    return result;
+  }
 }

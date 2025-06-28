@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 import { Roles, UserRole } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -28,10 +28,12 @@ export class DashboardController {
     const diaries = await this.diaryService.findAllDiaries();
 
     // Mapeia colaboradores
-    const emotionMap: { [key: string]: number } = {
-      'feliz': 10, 'alegre': 9, 'motivado': 8, 'ok': 7, 'neutro': 6,
-      'ansioso': 4, 'cansado': 3, 'triste': 2, 'tristeza': 2, 'depressivo': 1, 'depressão': 1,
-      'raiva': 2, 'preocupado': 3, 'exausto': 2, 'estressado': 3, 'ansiedade': 3, 'irritado': 2
+    const emotionEssScore: { [key: string]: number } = {
+      'feliz': 5, 'realizado': 5,
+      'ok': 4, 'tranquilo': 4,
+      'neutro': 3, 'indiferente': 3,
+      'irritado': 2, 'frustrado': 2,
+      'ansioso': 1, 'triste': 1, 'desmotivado': 1
     };
     // Função para buscar nome do departamento pelo id
     function getDepartmentName(user: any): string {
@@ -51,13 +53,13 @@ export class DashboardController {
           if (typeof d.bemEstar === 'number') return d.bemEstar;
           if (typeof d.emotion === 'string') {
             const emo = d.emotion.toLowerCase();
-            return emotionMap[emo] ?? 5;
+            return emotionEssScore[emo] ?? 3;
           }
           return 0;
         });
         bemEstar = +(valores.reduce((acc: number, d: number) => acc + d, 0) / valores.length).toFixed(1);
       }
-      const risco = bemEstar < 4;
+      const risco = bemEstar < 3;
       return {
         id: user.id,
         nome: `${user.first_Name || ''} ${user.last_Name || ''}`.trim(),
@@ -72,6 +74,7 @@ export class DashboardController {
       bemEstarGeral: +(colaboradores.reduce((acc, c) => acc + c.bemEstar, 0) / (colaboradores.length || 1)).toFixed(1),
       altoRisco: colaboradores.filter((c) => c.risco).length,
       altoRiscoPercent: users.length ? Math.round((colaboradores.filter((c) => c.risco).length / users.length) * 100) : 0,
+      totalRespostasDiario: diaries.length, // novo indicador
     };
     // Departamentos
     const departamentosMap = new Map<string, number[]>();
@@ -92,5 +95,69 @@ export class DashboardController {
       departamentos,
       colaboradoresEmRisco
     };
+  }
+
+  async getEssScore(userId: number): Promise<{ ess: number, valores: number[], emotions: string[] }> {
+    const entries = await this.diaryService.findEntriesByUserId(userId);
+    console.log('ESS DEBUG RAW ENTRIES:', JSON.stringify(entries, null, 2));
+    if (!entries || entries.length === 0) return { ess: 0, valores: [], emotions: [] };
+    const emotionEssScore: { [key: string]: number } = {
+      'feliz': 5, 'realizado': 5,
+      'ok': 4, 'tranquilo': 4,
+      'neutro': 3, 'indiferente': 3,
+      'irritado': 2, 'frustrado': 2,
+      'ansioso': 1, 'triste': 1, 'desmotivado': 1
+    };
+    const valores: number[] = [];
+    const emotions: string[] = [];
+    entries.forEach((d: any) => {
+      if (typeof d.bemEstar === 'number') {
+        valores.push(d.bemEstar);
+        emotions.push('bemEstar');
+      } else if (typeof d.emotion === 'string') {
+        const emo = d.emotion.toLowerCase();
+        valores.push(emotionEssScore[emo] ?? 3);
+        emotions.push(emo);
+      }
+    });
+    const soma = valores.reduce((acc: number, d: number) => acc + d, 0);
+    const media = valores.length > 0 ? soma / valores.length : 0;
+    const ess = Math.round((media / 5) * 100);
+    console.log('ESS DEBUG -> Soma:', soma, '| Média:', media, '| ESS:', ess, '| Valores:', valores);
+    return { ess, valores, emotions };
+  }
+
+  @Get('ess')
+  @UseGuards(JwtAuthGuard)
+  async getUserEss(@Req() req: any) {
+    const userId = req.user?.userId || req.user?.id;
+    const { ess, valores, emotions } = await this.getEssScore(userId);
+    return { ess, valores, emotions };
+  }
+
+  @Get('ess-geral')
+  @Roles(UserRole.ADMIN)
+  async getEssGeral() {
+    const diaries = await this.diaryService.findAllDiaries();
+    const emotionEssScore: { [key: string]: number } = {
+      'feliz': 5, 'realizado': 5,
+      'ok': 4, 'tranquilo': 4,
+      'neutro': 3, 'indiferente': 3,
+      'irritado': 2, 'frustrado': 2,
+      'ansioso': 1, 'triste': 1, 'desmotivado': 1
+    };
+    const valores: number[] = [];
+    diaries.forEach((d: any) => {
+      if (typeof d.bemEstar === 'number') {
+        valores.push(d.bemEstar);
+      } else if (typeof d.emotion === 'string') {
+        const emo = d.emotion.toLowerCase();
+        valores.push(emotionEssScore[emo] ?? 3);
+      }
+    });
+    const soma = valores.reduce((acc: number, d: number) => acc + d, 0);
+    const media = valores.length > 0 ? soma / valores.length : 0;
+    const ess = Math.round((media / 5) * 100);
+    return { ess, valores };
   }
 }

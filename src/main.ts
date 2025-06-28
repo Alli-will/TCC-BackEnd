@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { useContainer } from 'class-validator';
 
 async function bootstrap() {
@@ -16,6 +16,16 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      exceptionFactory: (errors) => {
+        // Extrai mensagens detalhadas de todos os campos
+        const messages = errors.map(err => {
+          if (err.constraints) {
+            return Object.values(err.constraints).join(' ');
+          }
+          return 'Erro de validação.';
+        });
+        return new BadRequestException(messages);
+      },
     }),
   );
 
