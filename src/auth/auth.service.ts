@@ -15,7 +15,13 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    const payload = {sub: user.id,email: user.email,role: user.role,companyId: user.company?.id
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      companyId: user.company?.id,
+      first_Name: user.first_Name,
+      last_Name: user.last_Name
     };
     
     const token = this.jwtService.sign(payload, { expiresIn: '1h' });

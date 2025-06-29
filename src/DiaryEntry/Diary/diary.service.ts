@@ -81,9 +81,16 @@ export class DiaryService {
     }
   }
 
-  async findEntriesByUserId(userId: number) {
+  async findEntriesByUserId(userId: number, lastNDays?: number) {
+    const where: any = { userId };
+    if (lastNDays) {
+      const fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - lastNDays);
+      fromDate.setHours(0, 0, 0, 0);
+      where.date = { gte: fromDate };
+    }
     return await this.prisma.diaryEntry.findMany({
-      where: { userId },
+      where,
       include: { user: true, reasons: true },
     });
   }
@@ -106,8 +113,16 @@ export class DiaryService {
     return !!entry;
   }
 
-  async findAllDiaries() {
+  async findAllDiaries(lastDays?: number) {
+    const where: any = {};
+    if (lastDays) {
+      const now = new Date();
+      const start = new Date();
+      start.setDate(now.getDate() - lastDays);
+      where.created_at = { gte: start, lte: now };
+    }
     return await this.prisma.diaryEntry.findMany({
+      where,
       include: {
         user: { include: { department: true } },
         reasons: true,
@@ -131,11 +146,11 @@ export class DiaryService {
     for (const entrada of entries) {
       const emocao = entrada.emotion || 'Sem emoção';
       contagem[emocao] = (contagem[emocao] || 0) + 1;
-      // Energia: feliz=2, neutro=1, triste/ansioso/irritado=0
-      if (emocao === 'feliz') energiaTotal += 2;
-      else if (emocao === 'neutro') energiaTotal += 1;
-      // Estresse: ansioso/irritado contam como 1
-      if (emocao === 'ansioso' || emocao === 'irritado') estresseTotal += 1;
+      // Energia: Muito bem=2, Neutro=1, outros=0
+      if (emocao === 'Muito bem') energiaTotal += 2;
+      else if (emocao === 'Neutro') energiaTotal += 1;
+      // Estresse: Muito mal/Mal contam como 1
+      if (emocao === 'Muito mal' || emocao === 'Mal') estresseTotal += 1;
     }
     // Emoção mais frequente
     const emocaoMaisFrequente = Object.keys(contagem).reduce((a, b) => contagem[a] > contagem[b] ? a : b);
@@ -164,13 +179,53 @@ export class DiaryService {
     let agrupado: { [label: string]: { [emocao: string]: number } } = {};
     let entradasFiltradas = entries;
     const hoje = new Date();
-    if (period === 'semana') {
-      const umaSemanaAtras = new Date();
-      umaSemanaAtras.setDate(hoje.getDate() - 6);
+    let dias = 7;
+    if (period === 'mes') dias = 30;
+    if (period === 'ano') dias = 365;
+    let mediaPeriodo = 0;
+    let melhorDia = 0;
+    if (period === 'semana' || period === 'mes') {
+      const dataInicio = new Date(hoje);
+      dataInicio.setDate(hoje.getDate() - (dias - 1));
+      const lineLabels: string[] = [];
+      const lineData: (number | null)[] = [];
+      const emotionMap: { [key: string]: number } = {
+        'Muito mal': 1,
+        'Mal': 2,
+        'Neutro': 3,
+        'Bem': 4,
+        'Muito bem': 5,
+      };
+      for (let i = 0; i < dias; i++) {
+        const data = new Date(dataInicio);
+        data.setDate(dataInicio.getDate() + i);
+        const dataStr = data.toISOString().split('T')[0];
+        lineLabels.push(dataStr);
+        // Busca a ÚLTIMA entrada do dia (maior created_at)
+        const entradasDoDia = entries.filter(e => e.date && e.date.toISOString().split('T')[0] === dataStr);
+        let entrada = null;
+        if (entradasDoDia.length > 0) {
+          entrada = entradasDoDia.reduce((latest, curr) => {
+            if (!latest) return curr;
+            return (curr.created_at > latest.created_at) ? curr : latest;
+          }, null);
+        }
+        if (entrada && entrada.emotion) {
+          lineData.push(emotionMap[entrada.emotion] || null);
+        } else {
+          lineData.push(null);
+        }
+      }
+      // Cálculo da média e melhor dia (considerando só valores válidos)
+      const valoresValidos = lineData.filter(v => v !== null) as number[];
+      if (valoresValidos.length > 0) {
+        mediaPeriodo = Number((valoresValidos.reduce((a, b) => a + b, 0) / valoresValidos.length).toFixed(1));
+        melhorDia = Math.max(...valoresValidos);
+      }
       entradasFiltradas = entries.filter((entrada) => {
         if (!entrada.date) return false;
         const data = new Date(entrada.date);
-        return data >= umaSemanaAtras && data <= hoje;
+        return data >= dataInicio && data <= hoje;
       });
       for (const entrada of entradasFiltradas) {
         const data = entrada.date ? entrada.date.toISOString().split('T')[0] : 'Sem data';
@@ -178,22 +233,26 @@ export class DiaryService {
         if (!agrupado[data]) agrupado[data] = {};
         agrupado[data][emocao] = (agrupado[data][emocao] || 0) + 1;
       }
-      labels = Object.keys(agrupado).sort();
-    } else if (period === 'mes') {
-      const anoAtual = hoje.getFullYear();
-      const mesAtual = hoje.getMonth() + 1;
-      entradasFiltradas = entries.filter((entrada) => {
-        if (!entrada.date) return false;
-        const data = new Date(entrada.date);
-        return data.getFullYear() === anoAtual && (data.getMonth() + 1) === mesAtual;
+      labels = lineLabels;
+      const emocoesSet = new Set<string>();
+      labels.forEach((label) => {
+        if (agrupado[label]) {
+          Object.keys(agrupado[label]).forEach((e) => emocoesSet.add(e));
+        }
       });
-      for (const entrada of entradasFiltradas) {
-        const data = entrada.date ? entrada.date.toISOString().split('T')[0] : 'Sem data';
-        const emocao = entrada.emotion || 'Sem emoção';
-        if (!agrupado[data]) agrupado[data] = {};
-        agrupado[data][emocao] = (agrupado[data][emocao] || 0) + 1;
-      }
-      labels = Object.keys(agrupado).sort();
+      const emocoes = Array.from(emocoesSet);
+      const datasets = emocoes.map((emocao) => ({
+        label: emocao,
+        data: labels.map((label) => agrupado[label]?.[emocao] || 0),
+      }));
+      return {
+        labels,
+        datasets,
+        lineLabels,
+        lineData,
+        mediaPeriodo,
+        melhorDia,
+      };
     } else if (period === 'ano') {
       for (const entrada of entries) {
         if (!entrada.date) continue;
@@ -203,21 +262,31 @@ export class DiaryService {
         agrupado[ano][emocao] = (agrupado[ano][emocao] || 0) + 1;
       }
       labels = Object.keys(agrupado).sort();
+      const emocoesSet = new Set<string>();
+      labels.forEach((label) => {
+        Object.keys(agrupado[label]).forEach((e) => emocoesSet.add(e));
+      });
+      const emocoes = Array.from(emocoesSet);
+      const datasets = emocoes.map((emocao) => ({
+        label: emocao,
+        data: labels.map((label) => agrupado[label][emocao] || 0),
+      }));
+      return {
+        labels,
+        datasets,
+        lineLabels: labels,
+        lineData: [],
+        mediaPeriodo: 0,
+        melhorDia: 0,
+      };
     }
-    // Obter todas as emoções únicas
-    const emocoesSet = new Set<string>();
-    labels.forEach((label) => {
-      Object.keys(agrupado[label]).forEach((e) => emocoesSet.add(e));
-    });
-    const emocoes = Array.from(emocoesSet);
-    // Montar datasets para cada emoção
-    const datasets = emocoes.map((emocao) => ({
-      label: emocao,
-      data: labels.map((label) => agrupado[label][emocao] || 0),
-    }));
     return {
-      labels,
-      datasets,
+      labels: [],
+      datasets: [],
+      lineLabels: [],
+      lineData: [],
+      mediaPeriodo: 0,
+      melhorDia: 0,
     };
   }
 
@@ -228,11 +297,11 @@ export class DiaryService {
   async getEmotionPercentages() {
     // Emoções padronizadas e seus emojis/labels
     const EMOTIONS = [
-      { key: 'triste', label: 'Triste', emoji: '😢' },
-      { key: 'frustrado', label: 'Frustrado', emoji: '😠' },
-      { key: 'neutro', label: 'Neutro', emoji: '😐' },
-      { key: 'tranquilo', label: 'Tranquilo', emoji: '🙂' },
-      { key: 'realizado', label: 'Realizado', emoji: '😃' },
+      { key: 'Muito mal', label: 'Muito mal', emoji: '😢' },
+      { key: 'Mal', label: 'Mal', emoji: '😠' },
+      { key: 'Neutro', label: 'Neutro', emoji: '😐' },
+      { key: 'Bem', label: 'Bem', emoji: '🙂' },
+      { key: 'Muito bem', label: 'Muito bem', emoji: '😃' },
     ];
     // Busca todas as entradas
     const entries = await this.prisma.diaryEntry.findMany();
@@ -240,9 +309,8 @@ export class DiaryService {
     // Conta cada emoção
     const counts: { [key: string]: number } = {};
     for (const { emotion } of entries) {
-      const key = emotion?.toLowerCase();
-      if (EMOTIONS.some(e => e.key === key)) {
-        counts[key] = (counts[key] || 0) + 1;
+      if (emotion && EMOTIONS.some(e => e.key === emotion)) {
+        counts[emotion] = (counts[emotion] || 0) + 1;
       }
     }
     // Monta resultado

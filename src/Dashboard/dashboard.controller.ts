@@ -29,11 +29,11 @@ export class DashboardController {
 
     // Mapeia colaboradores
     const emotionEssScore: { [key: string]: number } = {
-      'feliz': 5, 'realizado': 5,
-      'ok': 4, 'tranquilo': 4,
-      'neutro': 3, 'indiferente': 3,
-      'irritado': 2, 'frustrado': 2,
-      'ansioso': 1, 'triste': 1, 'desmotivado': 1
+      'Muito bem': 5,
+      'Bem': 4,
+      'Neutro': 3,
+      'Mal': 2,
+      'Muito mal': 1
     };
     // Função para buscar nome do departamento pelo id
     function getDepartmentName(user: any): string {
@@ -52,7 +52,7 @@ export class DashboardController {
         const valores = diarios.map((d: any) => {
           if (typeof d.bemEstar === 'number') return d.bemEstar;
           if (typeof d.emotion === 'string') {
-            const emo = d.emotion.toLowerCase();
+            const emo = d.emotion; // Removido .toLowerCase()
             return emotionEssScore[emo] ?? 3;
           }
           return 0;
@@ -98,15 +98,17 @@ export class DashboardController {
   }
 
   async getEssScore(userId: number): Promise<{ ess: number, valores: number[], emotions: string[] }> {
-    const entries = await this.diaryService.findEntriesByUserId(userId);
+    // Buscar apenas os últimos 30 dias
+    const entries = await this.diaryService.findEntriesByUserId(userId, 30);
     console.log('ESS DEBUG RAW ENTRIES:', JSON.stringify(entries, null, 2));
+    console.log('Datas usadas no ESS (últimos 30 dias):', entries.map(e => e.date || e.created_at));
     if (!entries || entries.length === 0) return { ess: 0, valores: [], emotions: [] };
     const emotionEssScore: { [key: string]: number } = {
-      'feliz': 5, 'realizado': 5,
-      'ok': 4, 'tranquilo': 4,
-      'neutro': 3, 'indiferente': 3,
-      'irritado': 2, 'frustrado': 2,
-      'ansioso': 1, 'triste': 1, 'desmotivado': 1
+      'Muito bem': 5,
+      'Bem': 4,
+      'Neutro': 3,
+      'Mal': 2,
+      'Muito mal': 1
     };
     const valores: number[] = [];
     const emotions: string[] = [];
@@ -115,7 +117,7 @@ export class DashboardController {
         valores.push(d.bemEstar);
         emotions.push('bemEstar');
       } else if (typeof d.emotion === 'string') {
-        const emo = d.emotion.toLowerCase();
+        const emo = d.emotion; // Removido .toLowerCase()
         valores.push(emotionEssScore[emo] ?? 3);
         emotions.push(emo);
       }
@@ -138,20 +140,21 @@ export class DashboardController {
   @Get('ess-geral')
   @Roles(UserRole.ADMIN)
   async getEssGeral() {
-    const diaries = await this.diaryService.findAllDiaries();
+    // Busca apenas os últimos 30 dias
+    const diaries = await this.diaryService.findAllDiaries(30);
     const emotionEssScore: { [key: string]: number } = {
-      'feliz': 5, 'realizado': 5,
-      'ok': 4, 'tranquilo': 4,
-      'neutro': 3, 'indiferente': 3,
-      'irritado': 2, 'frustrado': 2,
-      'ansioso': 1, 'triste': 1, 'desmotivado': 1
+      'Muito bem': 5,
+      'Bem': 4,
+      'Neutro': 3,
+      'Mal': 2,
+      'Muito mal': 1
     };
     const valores: number[] = [];
     diaries.forEach((d: any) => {
       if (typeof d.bemEstar === 'number') {
         valores.push(d.bemEstar);
       } else if (typeof d.emotion === 'string') {
-        const emo = d.emotion.toLowerCase();
+        const emo = d.emotion;
         valores.push(emotionEssScore[emo] ?? 3);
       }
     });

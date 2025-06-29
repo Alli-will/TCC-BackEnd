@@ -44,4 +44,13 @@ export class DiaryController {
   async getEmotionPercentages() {
     return this.diaryService.getEmotionPercentages();
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('graph-data')
+  async getGraphData(@Request() req, @Body() body: any): Promise<any> {
+    const userId = req.user.id;
+    // period pode vir como query param, mas para compatibilidade, tenta pegar do body também
+    const period = req.query.period || body.period || 'semana';
+    return this.diaryService.getGraphData(userId, period);
+  }
 }
