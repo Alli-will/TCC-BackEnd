@@ -21,7 +21,7 @@ export class RolesGuard implements CanActivate {
     ]);
 
     if (!requiredRoles) {
-      return true; // Nenhum papel requerido -> acesso liberado
+      return true; 
     }
 
     return requiredRoles.includes(user.role);

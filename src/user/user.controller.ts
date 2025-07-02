@@ -1,5 +1,4 @@
-import {Controller,Post,Body,HttpCode,HttpStatus,Req,UseGuards,
-} from '@nestjs/common';
+import {Controller,Post,Body,HttpCode,HttpStatus,Req,UseGuards,Get} from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user-dto';
 import { JwtAuthGuard } from '../auth/JwtAuthGuard';
@@ -7,10 +6,22 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UserRole } from '../auth/roles.decorator';
 
-
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
+
+  @Get()
+  async getAllUsers() {
+    try {
+      const users = await this.userService.findAll();
+      return users;
+    } catch (error) {
+      return {
+        message: 'Erro ao buscar usuários.',
+        error: error.response || error.message,
+      };
+    }
+  }
   @Post('register-access')
   @HttpCode(HttpStatus.CREATED)
   async registerAccess(@Body() createUserDto: CreateUserDto) {

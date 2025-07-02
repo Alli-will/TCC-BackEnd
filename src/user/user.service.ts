@@ -27,7 +27,7 @@ export class UserService {
 
     const newUser = await this.prisma.user.create({
       data: {
-        // Remove companyId e departmentId do DTO para evitar conflito com connect
+        
         ...((({ companyId, departmentId, ...rest }) => rest)(createUserDto)),
         password: hashedPassword,
         role: 'admin',
@@ -51,7 +51,6 @@ export class UserService {
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
-    // Obter o último internal_id dessa empresa
     const lastUser = await this.prisma.user.findFirst({
       where: { companyId: creator.company.id },
       orderBy: { internal_id: 'desc' },
@@ -74,7 +73,7 @@ export class UserService {
 
     const newUser = await this.prisma.user.create({
       data: {
-        // Remove companyId e departmentId do DTO para evitar conflito com connect
+        
         ...((({ companyId, departmentId, ...rest }) => rest)(createUserDto)),
         password: hashedPassword,
         role: 'employee',
@@ -88,8 +87,13 @@ export class UserService {
   }
 
   async findAll() {
-    const users = await this.prisma.user.findMany();
-    return users.map(({ password, ...user }) => user);
+    const users = await this.prisma.user.findMany({
+      include: { department: true }
+    });
+    return users.map(({ password, department, ...user }) => ({
+      ...user,
+      department: department ? department.name : null
+    }));
   }
 
   async findOne(id: number) {
