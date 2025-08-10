@@ -12,5 +12,6 @@ RUN npm install --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY prisma ./prisma
+RUN npx prisma generate
 ENV NODE_ENV=production
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]

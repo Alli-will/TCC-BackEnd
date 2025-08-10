@@ -12,7 +12,7 @@ export class DepartmentController {
   constructor(private readonly departmentService: DepartmentService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.EMPLOYEE)
   @UseGuards(JwtAuthGuard,RolesGuard)
   create(@Body() createDepartmentDto: CreateDepartmentDto, @Req() req: any) {
     const user = req.user as any;

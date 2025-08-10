@@ -12,9 +12,10 @@ export class DiaryController {
   @UseGuards(JwtAuthGuard)
   @Post('create')
   async createDiaryEntry(@Body() createDiaryEntryDto: CreateDiaryEntryDto, @Request() req) {
-    const userId = req.user.id;
-    await this.diaryService.create(createDiaryEntryDto, userId);
-    return { message: 'Entrada do diário criada com sucesso!' };
+  const userId = req.user?.id;
+  console.log('[DiaryController] POST /diary/create userId:', userId, 'payload:', createDiaryEntryDto);
+  await this.diaryService.create(createDiaryEntryDto, userId);
+  return { message: 'Entrada do diário criada com sucesso!' };
   }
   @UseGuards(JwtAuthGuard)
   @Get()
@@ -52,5 +53,13 @@ export class DiaryController {
     // period pode vir como query param, mas para compatibilidade, tenta pegar do body também
     const period = req.query.period || body.period || 'semana';
     return this.diaryService.getGraphData(userId, period);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('insights')
+  async getInsights(@Request() req) {
+    const userId = req.user.id;
+    console.log('[DiaryController] GET /diary/insights userId:', userId);
+    return this.diaryService.getInsights(userId);
   }
 }

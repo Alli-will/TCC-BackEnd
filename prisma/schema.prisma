@@ -1,62 +1,67 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
+model Search {
+  id        Int      @id @default(autoincrement())
+  titulo    String
+  tipo      String
+  perguntas Json
+  createdAt DateTime @default(now())
 
-enum UserRole {
-  admin
-  employee
+  @@map("searches")
 }
 
 model User {
-  id            Int           @id @default(autoincrement())
-  internal_id   Int
-  first_Name    String
-  last_Name     String
-  email         String        @unique
-  password      String
-  role          UserRole      @default(employee)
-  created_at    DateTime      @default(now())
-  companyId     Int
-  company       Company       @relation(fields: [companyId], references: [id])
-  diaryEntries  DiaryEntry[]
-  notifications Notification[]
-  departmentId  Int?
-  department    Department?   @relation(fields: [departmentId], references: [id])
-  knowledges    Knowledge[]   @relation("UserToKnowledge")
+  id             Int             @id @default(autoincrement())
+  internal_id    Int
+  first_Name     String
+  last_Name      String
+  email          String          @unique
+  password       String
+  role           UserRole        @default(employee)
+  created_at     DateTime        @default(now())
+  // companyId agora opcional para permitir usuários de suporte sem vínculo
+  companyId      Int?
+  departmentId   Int?
+  avatar         Bytes?
+  avatarMimeType String?
+  climaResponses ClimaResponse[]
+  diaryEntries   DiaryEntry[]
+  knowledges     Knowledge[]     @relation("UserToKnowledge")
+  notifications  Notification[]
+  pulseResponses PulseResponse[]
+  // Relação também opcional
+  company        Company?        @relation(fields: [companyId], references: [id])
+  department     Department?     @relation(fields: [departmentId], references: [id])
 }
 
 model Company {
-  id           Int          @id @default(autoincrement())
-  name         String
-  cnpj         String       @unique
-  address      String
+  id             Int          @id @default(autoincrement())
+  name           String
+  cnpj           String       @unique
+  address        String
   addressZipCode Int
-  neighborhood String
-  municipality String
-  state        String
-  country      String
-  phone        Int
-  users        User[]
-  departments  Department[]
+  neighborhood   String
+  municipality   String
+  state          String
+  country        String
+  phone          Int
+  departments    Department[]
+  users          User[]
 }
 
 model Department {
-  id       Int      @id @default(autoincrement())
-  name     String
-  users    User[]
+  id        Int     @id @default(autoincrement())
+  name      String
   companyId Int
-  company  Company @relation(fields: [companyId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id])
+  users     User[]
 }
 
 model DiaryEntry {
@@ -71,46 +76,65 @@ model DiaryEntry {
 }
 
 model ReasonEmotion {
-  id          Int             @id @default(autoincrement())
-  reason      String          @unique
-  diaryEntries DiaryEntry[]   @relation("DiaryEntryToReasonEmotion")
+  id           Int          @id @default(autoincrement())
+  reason       String       @unique
+  diaryEntries DiaryEntry[] @relation("DiaryEntryToReasonEmotion")
 }
 
 model Notification {
-  id         Int      @id @default(autoincrement())
-  message    String
-  isRead     Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  userId     Int
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        Int      @id @default(autoincrement())
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Knowledge {
-  id              Int      @id @default(autoincrement())
-  anexo           Bytes?   // Arquivo binário opcional
-  url             String?  // URL opcional
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-  deleted_at      DateTime?
-  createdBy_user  Int
-  createdBy       User     @relation("UserToKnowledge", fields: [createdBy_user], references: [id])
+  id             Int       @id @default(autoincrement())
+  url            String?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  deleted_at     DateTime?
+  createdBy_user Int
+  anexo          Bytes?
+  createdBy      User      @relation("UserToKnowledge", fields: [createdBy_user], references: [id])
 }
 
 model SupportMaterial {
-  id                Int      @id @default(autoincrement())
-  anexo             Bytes?
+  id                Int       @id @default(autoincrement())
   url               String?
   emotion           String?
   reason_emotion_id Int?
-  created_at        DateTime @default(now())
+  created_at        DateTime  @default(now())
   deleted_at        DateTime?
+  anexo             Bytes?
 }
 
-model BehavioralAnalysis {
-  id                Int      @id @default(autoincrement())
-  text              String
-  created_at        DateTime @default(now())
-  updated_at        DateTime @updatedAt
-  deleted_at        DateTime?
-  created_by_user_id Int
+model PulseResponse {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  createdAt  DateTime @default(now())
+  answers    Json
+  pesquisaId Int
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, pesquisaId])
+}
+
+model ClimaResponse {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  createdAt  DateTime @default(now())
+  answers    Json
+  pesquisaId Int
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, pesquisaId])
+}
+
+enum UserRole {
+  admin
+  employee
+  support
 }

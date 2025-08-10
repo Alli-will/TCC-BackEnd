@@ -10,18 +10,19 @@ export class AuthService {
   ) {}
 
   async login(email: string, password: string) {
-    const user = await this.userService.findByEmail(email);
+  const user = await this.userService.findByEmail(email);
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    const u: any = user;
     const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      companyId: user.company?.id,
-      first_Name: user.first_Name,
-      last_Name: user.last_Name
+      sub: u.id,
+      email: u.email,
+      role: u.role,
+      companyId: u.company?.id,
+      first_Name: u.first_Name,
+      last_Name: u.last_Name
     };
     
     const token = this.jwtService.sign(payload, { expiresIn: '1h' });

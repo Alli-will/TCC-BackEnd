@@ -2,6 +2,9 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user-dto';
+// Alias Prisma enum to avoid confusion with auth UserRole enum
+import { UserRole as PrismaUserRole } from '@prisma/client';
+import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 
 @Injectable()
 export class UserService {
@@ -86,14 +89,46 @@ export class UserService {
     return result;
   }
 
+  async createSupport(createUserDto: CreateUserDto, adminUserId: number) {
+    const admin = await this.prisma.user.findUnique({ where: { id: adminUserId } });
+    if (!admin) {
+      throw new BadRequestException('Administrador não encontrado.');
+    }
+    const existing = await this.prisma.user.findUnique({ where: { email: createUserDto.email } });
+    if (existing) throw new BadRequestException('Já existe usuário com esse e-mail.');
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    // internal_id independente de empresa para suporte: usar maior global
+    const lastUser = await this.prisma.user.findFirst({ orderBy: { internal_id: 'desc' } });
+    const nextInternalId = lastUser ? (lastUser.internal_id || 0) + 1 : 1;
+    const newUser = await this.prisma.user.create({
+      data: {
+        first_Name: createUserDto.first_Name,
+        last_Name: createUserDto.last_Name,
+        email: createUserDto.email,
+        password: hashedPassword,
+        role: 'support' as PrismaUserRole,
+        internal_id: nextInternalId,
+        // companyId omitido (null)
+      } as any // cast para permitir ausência de company enquanto schema gerado não atualiza
+    });
+    const { password, ...result } = newUser;
+    return result;
+  }
+
   async findAll() {
-    const users = await this.prisma.user.findMany({
+    const users: any[] = await this.prisma.user.findMany({
+      where: { role: { not: 'support' as any } }, // excluir suporte das listagens
       include: { department: true }
     });
-    return users.map(({ password, department, ...user }) => ({
-      ...user,
-      department: department ? department.name : null
-    }));
+    return users.map((u: any) => {
+      const { password, department, ...user } = u;
+      return {
+        ...user,
+        department: department ? department.name : null,
+        departmentId: department ? department.id : null,
+        role: user.role
+      };
+    });
   }
 
   async findOne(id: number) {
@@ -118,5 +153,73 @@ export class UserService {
     if (!user) return null;
     const { password, ...result } = user;
     return result;
+  }
+
+  async updateUser(id: number, data: any) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new BadRequestException('Usuário não encontrado.');
+    const updateData: any = {};
+    if (data.first_Name || data.firstName) updateData.first_Name = data.first_Name || data.firstName;
+    if (data.last_Name || data.lastName) updateData.last_Name = data.last_Name || data.lastName;
+    if (data.email) updateData.email = data.email;
+  if (data.avatar && data.avatar instanceof Buffer) updateData.avatar = data.avatar;
+  if (data.avatarMimeType) updateData.avatarMimeType = data.avatarMimeType;
+    if (data.password) {
+      updateData.password = await bcrypt.hash(data.password, 10);
+    }
+  try {
+      const updated = await this.prisma.user.update({ where: { id }, data: updateData });
+      const { password, ...rest } = updated;
+      return rest;
+    } catch (e) {
+      throw new BadRequestException(e.message);
+    }
+  }
+
+  async getUserAvatar(id: number) {
+  return this.prisma.user.findUnique({ where: { id } });
+  }
+
+  async updateDepartment(targetUserId: number, departmentId: number | null, adminUserId: number) {
+    // verifica admin e empresa
+    const admin = await this.prisma.user.findUnique({ where: { id: adminUserId } });
+    if (!admin) throw new BadRequestException('Administrador não encontrado');
+    const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!target) throw new BadRequestException('Usuário alvo não encontrado');
+    if (admin.companyId !== target.companyId) {
+      throw new BadRequestException('Usuário não pertence à mesma empresa');
+    }
+    let deptConnect: any = undefined;
+    if (departmentId) {
+      const dept = await this.prisma.department.findFirst({ where: { id: departmentId, companyId: admin.companyId } });
+      if (!dept) throw new BadRequestException('Departamento inválido');
+      deptConnect = { connect: { id: dept.id } };
+    } else {
+      // remover departamento
+      deptConnect = { disconnect: true };
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { department: deptConnect },
+      include: { department: true }
+    });
+    const { password, department, ...rest } = updated as any;
+    return { ...rest, department: department ? department.name : null, departmentId: department ? department.id : null };
+  }
+
+  async updateRole(targetUserId: number, dto: UpdateUserRoleDto, adminUserId: number) {
+    const admin = await this.prisma.user.findUnique({ where: { id: adminUserId } });
+    if (!admin) throw new BadRequestException('Administrador não encontrado');
+    if (admin.role !== 'admin') throw new BadRequestException('Apenas administrador pode alterar role');
+    if (admin.id === targetUserId && dto.role !== 'admin') {
+      throw new BadRequestException('Você não pode remover seu próprio papel de administrador.');
+    }
+    try {
+      const updated = await this.prisma.user.update({ where: { id: targetUserId }, data: { role: dto.role as PrismaUserRole } });
+      const { password, ...rest } = updated;
+      return rest;
+    } catch (e) {
+      throw new BadRequestException(e.message);
+    }
   }
 }

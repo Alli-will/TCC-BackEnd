@@ -19,23 +19,41 @@ export class DiaryService {
     userId: number,
   ) {
     try {
-      const { reasonIds, emotion, description, date } = createDiaryEntryDto;
-
-      const reasons = await this.prisma.reasonEmotion.findMany({
-        where: { id: { in: reasonIds } },
-      });
-      if (reasons.length !== reasonIds.length) {
-        throw new BadRequestException('Um ou mais motivos são inválidos.');
+      const { reasonIds, emotion, description, date } = createDiaryEntryDto as any;
+      console.log('[DiaryService.create] INPUT', { userId, reasonIds, emotion, descriptionLength: description?.length, date });
+      if (!userId) {
+        throw new BadRequestException('Usuário não identificado');
       }
-
+      if (!emotion || !description) {
+        throw new BadRequestException('Emotion e description são obrigatórios');
+      }
+      let safeReasonIds: number[] = Array.isArray(reasonIds) ? reasonIds : [];
+      if (safeReasonIds.some(r => typeof r !== 'number')) {
+        throw new BadRequestException('reasonIds deve conter números');
+      }
+      // Permitir zero motivos (opcional)
+      let reasons: any[] = [];
+      if (safeReasonIds.length) {
+        reasons = await this.prisma.reasonEmotion.findMany({
+          where: { id: { in: safeReasonIds } },
+        });
+        if (reasons.length !== safeReasonIds.length) {
+          console.warn('[DiaryService.create] IDs inválidos', { safeReasonIds, found: reasons.map(r => r.id) });
+          throw new BadRequestException('Um ou mais motivos são inválidos.');
+        }
+      }
+      const parsedDate = date ? new Date(date) : new Date();
+      if (isNaN(parsedDate.getTime())) {
+        throw new BadRequestException('Data inválida');
+      }
       const diaryEntry = await this.prisma.diaryEntry.create({
         data: {
-          date: new Date(date), // Garante formato ISO-8601
+          date: parsedDate, // Garante formato válido
           emotion,
           description,
           user: { connect: { id: userId } },
           reasons: {
-            connect: reasonIds.map(id => ({ id })),
+            connect: safeReasonIds.map(id => ({ id })),
           },
         },
         include: { reasons: true, user: true },
@@ -53,7 +71,7 @@ export class DiaryService {
       );
       const isEmocaoNegativa = emocoesNegativas.includes(emotion.toLowerCase());
 
-      if (hasPalavraChave && hasMotivoSensivel && isEmocaoNegativa) {
+  if (hasPalavraChave && hasMotivoSensivel && isEmocaoNegativa) {
         // Busca o departamento do usuário
         const user = await this.prisma.user.findUnique({
           where: { id: userId },
@@ -73,11 +91,11 @@ export class DiaryService {
       }
 
       return diaryEntry;
-    } catch (error) {
-      console.error(error);
-      throw new InternalServerErrorException(
-        'Erro ao criar entrada do diário.',
-      );
+    } catch (error: any) {
+      console.error('[DiaryService.create] ERRO', { message: error?.message, code: error?.code, meta: error?.meta });
+      // Propagar erros de validação já tratados
+      if (error instanceof BadRequestException) throw error;
+      throw new InternalServerErrorException('Erro ao criar entrada do diário.');
     }
   }
 

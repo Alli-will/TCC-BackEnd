@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { DashboardController } from './dashboard.controller';
 import { UserModule } from '../user/user.module';
 import { DiaryModule } from '../DiaryEntry/Diary/diary.module';
+import { PrismaModule } from '../../prisma/prisma.module';
 
 @Module({
-  imports: [UserModule, DiaryModule],
+  // Added PrismaModule to allow direct access to PulseResponse for NPS metrics
+  imports: [UserModule, DiaryModule, PrismaModule],
   controllers: [DashboardController],
 })
 export class DashboardModule {}

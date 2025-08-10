@@ -8,11 +8,19 @@ export class IsUniqueEmailConstraint implements ValidatorConstraintInterface {
   constructor(private prisma: PrismaService) {}
 
   async validate(email: string, args: ValidationArguments) {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      select: { id: true }
-    });
-    return !user;
+    // Se o campo ainda não foi preenchido ou já falhou em outro validador, não tenta consultar
+    if (!email) return true;
+    const normalized = email.trim().toLowerCase();
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { email: normalized },
+        select: { id: true }
+      });
+      return !user;
+    } catch (e) {
+      // Em caso de qualquer erro de prisma, não bloquear validação por falha técnica
+      return true;
+    }
   }
 
   defaultMessage(args: ValidationArguments) {
