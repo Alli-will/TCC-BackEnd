@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateSearchDto } from './dto/create-search.dto';
 import { RespondSearchDto } from './dto/respond-search.dto';
 
-// Perguntas padrão para PESQUISA TIPO PULSO (escala 0-10)
+// Perguntas padrão para PESQUISA TIPO PULSO (escala 0-10) — reduzido para 5 perguntas
 const DEFAULT_PULSO_QUESTIONS = [
   {
     texto: 'Em uma escala de 0 a 10, o quanto você recomendaria a empresa como um bom lugar para trabalhar para um amigo ou conhecido?',
@@ -30,45 +30,15 @@ const DEFAULT_PULSO_QUESTIONS = [
     opcoes: [0,1,2,3,4,5,6,7,8,9,10],
     obrigatoria: true,
   },
-  {
-    texto: 'Em uma escala de 0 a 10, como você avalia a frequência e a qualidade dos feedbacks que recebe sobre seu desempenho?',
-    opcoes: [0,1,2,3,4,5,6,7,8,9,10],
-    obrigatoria: true,
-  },
-  {
-    texto: 'Em uma escala de 0 a 10, o quanto você considera que sua carga de trabalho é adequada e equilibrada?',
-    opcoes: [0,1,2,3,4,5,6,7,8,9,10],
-    obrigatoria: true,
-  },
-  {
-    texto: 'Em uma escala de 0 a 10, como você avalia a disponibilidade de ferramentas e recursos para realizar seu trabalho da melhor forma?',
-    opcoes: [0,1,2,3,4,5,6,7,8,9,10],
-    obrigatoria: true,
-  },
-  {
-    texto: 'Em uma escala de 0 a 10, o quanto você percebe colaboração e trabalho em equipe entre colegas e setores?',
-    opcoes: [0,1,2,3,4,5,6,7,8,9,10],
-    obrigatoria: true,
-  },
-  {
-    texto: 'Em uma escala de 0 a 10, como você avalia a transparência e a comunicação da liderança da empresa?',
-    opcoes: [0,1,2,3,4,5,6,7,8,9,10],
-    obrigatoria: true,
-  },
 ];
 
-// Perguntas padrão para PESQUISA TIPO CLIMA (escala Likert 1-5)
+// Perguntas padrão para PESQUISA TIPO CLIMA (escala Likert 1-5) — reduzido para 5 perguntas
 const DEFAULT_CLIMA_QUESTIONS = [
   { texto: 'Sinto-me satisfeito(a) com meu trabalho atualmente?', opcoes: [1,2,3,4,5], obrigatoria: true },
   { texto: 'Tenho motivação para realizar minhas tarefas diariamente?', opcoes: [1,2,3,4,5], obrigatoria: true },
   { texto: 'Tenho energia suficiente para desempenhar bem minhas funções?', opcoes: [1,2,3,4,5], obrigatoria: true },
   { texto: 'Sinto-me confiante para lidar com os desafios do meu trabalho?', opcoes: [1,2,3,4,5], obrigatoria: true },
   { texto: 'Meu nível de estresse está sob controle?', opcoes: [1,2,3,4,5], obrigatoria: true },
-  { texto: 'Consigo manter um bom equilíbrio entre vida pessoal e profissional?', opcoes: [1,2,3,4,5], obrigatoria: true },
-  { texto: 'Realizo atividades que me trazem satisfação e propósito?', opcoes: [1,2,3,4,5], obrigatoria: true },
-  { texto: 'Sinto-me otimista em relação ao meu futuro na empresa?', opcoes: [1,2,3,4,5], obrigatoria: true },
-  { texto: 'Recebo apoio emocional de meus colegas e líderes?', opcoes: [1,2,3,4,5], obrigatoria: true },
-  { texto: 'Sinto que meu bem-estar emocional é valorizado pela empresa?', opcoes: [1,2,3,4,5], obrigatoria: true },
 ];
 
 export const getDefaultQuestions = (tipo?: string) => {
@@ -80,7 +50,6 @@ export class SearchService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(page = 1, limit = 10, excludeRespondedForUserId?: number) {
-  console.log('[SearchService] findAll', { page, limit, excludeRespondedForUserId });
     const take = Math.min(Math.max(limit, 1), 100);
     const currentPage = Math.max(page, 1);
     const skip = (currentPage - 1) * take;
@@ -113,8 +82,7 @@ export class SearchService {
   }
 
   async findOne(id: number, userIdToCheck?: number) {
-  console.log('[SearchService] findOne', { id, userIdToCheck });
-    const search = await this.prisma.search.findUnique({ where: { id } });
+  const search = await this.prisma.search.findUnique({ where: { id } });
     if (!search) throw new NotFoundException('Pesquisa não encontrada');
     if (userIdToCheck) {
       const already = search.tipo === 'pulso'
@@ -128,7 +96,6 @@ export class SearchService {
   }
 
   async respond(dto: RespondSearchDto, userId: number) {
-  console.log('[SearchService] respond', { dto, userId });
     const search = await this.prisma.search.findUnique({ where: { id: dto.searchId } });
     if (!search) throw new NotFoundException('Pesquisa não encontrada');
 
@@ -184,5 +151,141 @@ export class SearchService {
       where: { id: searchId },
       data: { perguntas },
     });
+  }
+
+  /**
+   * Gera relatório detalhado de uma pesquisa.
+   * Para pulso: calcula NPS (1ª pergunta escala 0-10), distribuição NPS, médias por pergunta e distribuição de opções.
+   * Para clima: médias por pergunta, distribuição (1-5) e média geral.
+   */
+  async getReport(id: number, departmentId?: number) {
+    const search = await this.prisma.search.findUnique({ where: { id } });
+    if (!search) throw new NotFoundException('Pesquisa não encontrada');
+    const perguntas: any[] = Array.isArray(search.perguntas) ? search.perguntas : [];
+
+    const isPulso = search.tipo === 'pulso';
+    // Monta condição de filtro opcional por departamento (via user.departmentId)
+    const baseWhere: any = { pesquisaId: id };
+    const includeUser = { user: true };
+    if (departmentId) {
+      baseWhere.user = { departmentId };
+    }
+    const responses = isPulso
+      ? await this.prisma.pulseResponse.findMany({ where: baseWhere, include: includeUser })
+      : await this.prisma.climaResponse.findMany({ where: baseWhere, include: includeUser });
+
+    let departmentInfo: { id: number; name: string } | null = null;
+    if (departmentId) {
+      const dep = await this.prisma.department.findUnique({ where: { id: departmentId } });
+      if (dep) departmentInfo = { id: dep.id, name: dep.name };
+    }
+
+    const totalRespondentes = responses.length;
+    const perguntasResultados: any[] = perguntas.map((_p, idx) => ({
+      index: idx,
+      texto: _p.texto,
+      media: null as number | null,
+      distribuicao: {} as Record<string, { count: number; percent: number }> // opção -> stats
+    }));
+
+    let nps: number | null = null;
+    let npsDistribuicao: Record<string, { count: number; percent: number }> | null = null;
+    let promotores = 0, detratores = 0, neutros = 0;
+
+    if (!totalRespondentes) {
+      // Sem respostas: retorna estrutura vazia
+      return {
+        id: search.id,
+        titulo: search.titulo,
+        tipo: search.tipo,
+        createdAt: search.createdAt,
+        totalRespondentes,
+        perguntas: perguntasResultados,
+        nps,
+        promotores,
+        detratores,
+        neutros,
+        npsDistribuicao,
+        department: departmentInfo
+      };
+    }
+
+    // Agrega respostas
+    for (const resp of responses as any[]) {
+      const ansArr: any[] = Array.isArray(resp.answers) ? resp.answers : [];
+      ansArr.forEach((ans, idx) => {
+        if (!perguntasResultados[idx]) return;
+        const valor = ans?.resposta;
+        if (valor === undefined || valor === null || valor === '') return;
+        // média numérica se for number
+        if (typeof valor === 'number') {
+          const pr = perguntasResultados[idx];
+          if (pr._soma === undefined) pr._soma = 0;
+            if (pr._count === undefined) pr._count = 0;
+          pr._soma += valor;
+          pr._count += 1;
+        }
+        // distribuição
+        const key = String(valor);
+        const prd = perguntasResultados[idx].distribuicao;
+        if (!prd[key]) prd[key] = { count: 0, percent: 0 };
+        prd[key].count += 1;
+      });
+    }
+
+    // Finaliza métricas por pergunta
+    perguntasResultados.forEach(pr => {
+      if (typeof pr._count === 'number' && pr._count > 0) {
+        pr.media = Number((pr._soma / pr._count).toFixed(2));
+      }
+      const distribVals: any[] = Object.values(pr.distribuicao || {});
+      const totalLocal: number = distribVals.reduce((acc: number, v: any) => acc + (typeof v.count === 'number' ? v.count : 0), 0);
+      if (totalLocal > 0) {
+        Object.entries(pr.distribuicao).forEach(([k, v]: [string, any]) => {
+          const countNum = typeof v.count === 'number' ? v.count : 0;
+          v.percent = Number(((countNum / totalLocal) * 100).toFixed(2));
+        });
+      }
+      delete pr._soma; delete pr._count;
+    });
+
+    if (isPulso) {
+      // NPS CLÁSSICO: somente a PRIMEIRA pergunta (recomendação). Cada usuário responde uma vez por pesquisa.
+      // Cada usuário => 1 nota (0-10) => classificado e entra na distribuição.
+      const dist: Record<number, number> = {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0};
+      for (const resp of responses as any[]) {
+        const ansArray = Array.isArray(resp.answers) ? resp.answers : [];
+        const first = ansArray[0]?.resposta;
+        if (typeof first === 'number' && first >= 0 && first <= 10) {
+          dist[first] = (dist[first] || 0) + 1;
+        }
+      }
+      // Total de respondentes = número de respostas (já é garantido 1 por usuário por pesquisa)
+      const total = Object.values(dist).reduce((a,b)=>a+b,0);
+      promotores = (dist[9]||0) + (dist[10]||0);
+      neutros = (dist[7]||0) + (dist[8]||0);
+      detratores = (dist[0]||0)+(dist[1]||0)+(dist[2]||0)+(dist[3]||0)+(dist[4]||0)+(dist[5]||0)+(dist[6]||0);
+      nps = total ? Math.round(((promotores/total) - (detratores/total))*100) : null;
+      npsDistribuicao = {};
+      for (let i=0;i<=10;i++) {
+        const c = dist[i] || 0;
+        npsDistribuicao[String(i)] = { count: c, percent: total ? Number(((c/total)*100).toFixed(2)) : 0 };
+      }
+    }
+
+    return {
+      id: search.id,
+      titulo: search.titulo,
+      tipo: search.tipo,
+      createdAt: search.createdAt,
+      totalRespondentes,
+      perguntas: perguntasResultados,
+      nps,
+      promotores,
+      detratores,
+      neutros,
+      npsDistribuicao,
+      department: departmentInfo,
+    };
   }
 }

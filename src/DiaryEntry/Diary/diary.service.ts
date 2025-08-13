@@ -20,7 +20,6 @@ export class DiaryService {
   ) {
     try {
       const { reasonIds, emotion, description, date } = createDiaryEntryDto as any;
-      console.log('[DiaryService.create] INPUT', { userId, reasonIds, emotion, descriptionLength: description?.length, date });
       if (!userId) {
         throw new BadRequestException('Usuário não identificado');
       }

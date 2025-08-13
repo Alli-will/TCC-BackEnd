@@ -24,7 +24,6 @@ async function seed() {
     }
   }
 
-  console.log('Seed finalizado.');
   await prisma.$disconnect();
 }
 

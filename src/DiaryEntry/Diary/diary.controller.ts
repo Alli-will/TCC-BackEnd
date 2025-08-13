@@ -13,7 +13,6 @@ export class DiaryController {
   @Post('create')
   async createDiaryEntry(@Body() createDiaryEntryDto: CreateDiaryEntryDto, @Request() req) {
   const userId = req.user?.id;
-  console.log('[DiaryController] POST /diary/create userId:', userId, 'payload:', createDiaryEntryDto);
   await this.diaryService.create(createDiaryEntryDto, userId);
   return { message: 'Entrada do diário criada com sucesso!' };
   }
@@ -59,7 +58,6 @@ export class DiaryController {
   @Get('insights')
   async getInsights(@Request() req) {
     const userId = req.user.id;
-    console.log('[DiaryController] GET /diary/insights userId:', userId);
     return this.diaryService.getInsights(userId);
   }
 }

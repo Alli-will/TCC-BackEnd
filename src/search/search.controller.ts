@@ -10,10 +10,13 @@ export class SearchController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Query('page') page?: string, @Query('limit') limit?: string, @Query('excludeRespondedUserId') _excludeRespondedUserId?: string, @Req() req?: any) {
+  findAll(@Query('page') page?: string, @Query('limit') limit?: string, @Query('all') all?: string, @Req() req?: any) {
     const p = page ? Number(page) : 1;
     const l = limit ? Number(limit) : 10;
-    const ex = req?.user?.id; // sempre usar usuário autenticado para excluir respondidas
+    const role = req?.user?.role;
+    const wantAll = role === 'admin' && (all === '1' || all === 'true');
+    // Se não for admin ou não solicitou all=1, exclui respondidas.
+    const ex = wantAll ? undefined : req?.user?.id;
     return this.searchService.findAll(p, l, ex);
   }
 
@@ -28,6 +31,13 @@ export class SearchController {
   @Get(':id')
   findOne(@Param('id') id: string, @Req() req: any) {
     return this.searchService.findOne(Number(id), req.user.id);
+  }
+
+  // Relatório detalhado da pesquisa (indicadores por pergunta / NPS / distribuições)
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/report')
+  report(@Param('id') id: string, @Query('departmentId') departmentId?: string) {
+    return this.searchService.getReport(Number(id), departmentId ? Number(departmentId) : undefined);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -57,8 +57,6 @@ export class UserController {
   @HttpCode(HttpStatus.CREATED)
   @Roles(UserRole.ADMIN)
   async createCollaborator(@Body() createUserDto: CreateUserDto, @Req() req) {
-    //console.log('DTO no controller:', dto);
-    console.log('Usuário autenticado:', req.user);
     try {
       const creatorUser = req.user;
       const companyId = creatorUser.companyId;
@@ -183,7 +181,6 @@ export class UserController {
       return { message: 'Nenhum arquivo enviado' };
     }
   // log simples de tamanho
-  console.log('[UPLOAD AVATAR]', req.user.id, 'size', file.size, 'mimetype', file.mimetype);
     const updated = await this.userService.updateUser(req.user.id, { avatar: file.buffer, avatarMimeType: file.mimetype });
     return { message: 'Avatar atualizado', user: { ...updated, avatar: undefined } };
   }

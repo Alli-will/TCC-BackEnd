@@ -25,51 +25,56 @@ export class DashboardController {
   @Get('metrics')
   @Roles(UserRole.ADMIN)
   async getDashboardMetrics() {
-    // NOVA LÓGICA: basear métricas em respostas de pesquisas tipo "pulso" (NPS 0-10)
-    // Obtém usuários (exclui suporte já aplicado no serviço) e respostas de pulso (últimos 30 dias)
+    // NOVA LÓGICA: usar somente a ÚLTIMA pesquisa de pulso criada (mais recente) e suas respostas
     const users = await this.userService.findAll();
-    const since = new Date();
-    since.setDate(since.getDate() - 30);
-
-    const pulseResponses = await this.prisma.pulseResponse.findMany({
-      where: { createdAt: { gte: since } },
-      include: { user: { include: { department: true } } },
+    const ultimaPesquisaPulso = await this.prisma.search.findFirst({
+      where: { tipo: 'pulso' },
+      orderBy: { createdAt: 'desc' },
     });
 
-    // Cada resposta possui answers: Json => array de { resposta: number }
-    // NPS por colaborador: usar a PRIMEIRA pergunta (recomendaria a empresa) como driver principal
-    interface ColabMetric { id: number; nome: string; departamento: string; npsDriverScore: number | null; categoria: 'promotor' | 'neutro' | 'detrator' | null; }
+    if (!ultimaPesquisaPulso) {
+      return {
+        metricas: { ativos: users.length, respondentes: 0, nps: 0, promotores: 0, detratores: 0, neutros: 0, promotoresPercent: 0, detratoresPercent: 0 },
+        colaboradores: [],
+        departamentos: [],
+        colaboradoresEmRisco: [],
+        pulsoAtual: null,
+      };
+    }
 
-    const byUser: Record<number, ColabMetric> = {};
+    const pulseResponses = await this.prisma.pulseResponse.findMany({
+      where: { pesquisaId: ultimaPesquisaPulso.id },
+      include: { user: { include: { department: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // NPS CLÁSSICO no dashboard: apenas a PRIMEIRA pergunta (nota de recomendação) da última pesquisa, resposta mais recente por usuário
+    interface ColabNps { id: number; nome: string; departamento: string; nota: number; categoria: 'promotor' | 'neutro' | 'detrator'; createdAt: Date; }
+    const latestByUser: Record<number, ColabNps> = {};
     pulseResponses.forEach(resp => {
-      // pegar score da primeira resposta
-      let score: number | null = null;
-      try {
-        const arr = Array.isArray(resp.answers) ? resp.answers : (resp.answers as any);
-        if (Array.isArray(arr) && arr.length && typeof arr[0].resposta === 'number') {
-          score = arr[0].resposta;
-        }
-      } catch (e) {}
       const user = resp.user as any;
-      const nome = `${user.first_Name || ''} ${user.last_Name || ''}`.trim();
-      const departamento = user?.department?.name || 'Sem departamento';
-      if (!byUser[user.id]) {
-        byUser[user.id] = { id: user.id, nome, departamento, npsDriverScore: score, categoria: null };
-      } else {
-        // se já existia e ainda não tinha score, preenche
-        if (byUser[user.id].npsDriverScore == null && score != null) byUser[user.id].npsDriverScore = score;
+      const uid = user.id;
+      if (latestByUser[uid]) return; // já temos a resposta mais recente (lista está ordenada desc)
+      let arr: any[] = [];
+      try { arr = Array.isArray(resp.answers) ? resp.answers : (resp.answers as any); } catch { arr = []; }
+      const first = arr && arr[0] ? arr[0].resposta : undefined;
+      if (typeof first === 'number' && first >= 0 && first <= 10) {
+        let categoria: ColabNps['categoria'];
+        if (first >= 9) categoria = 'promotor';
+        else if (first >= 7) categoria = 'neutro';
+        else categoria = 'detrator';
+        latestByUser[uid] = {
+          id: uid,
+            nome: `${user.first_Name || ''} ${user.last_Name || ''}`.trim(),
+          departamento: user?.department?.name || 'Sem departamento',
+          nota: first,
+          categoria,
+          createdAt: resp.createdAt,
+        };
       }
     });
 
-    // Classificar categorias NPS
-    Object.values(byUser).forEach(c => {
-      if (c.npsDriverScore == null) return;
-      if (c.npsDriverScore >= 9) c.categoria = 'promotor';
-      else if (c.npsDriverScore >= 7) c.categoria = 'neutro';
-      else c.categoria = 'detrator';
-    });
-
-    const colaboradores = Object.values(byUser).filter(c => c.npsDriverScore != null);
+    const colaboradores = Object.values(latestByUser);
     const totalRespondentes = colaboradores.length;
     const promotores = colaboradores.filter(c => c.categoria === 'promotor').length;
     const detratores = colaboradores.filter(c => c.categoria === 'detrator').length;
@@ -90,7 +95,7 @@ export class DashboardController {
     }).sort((a, b) => a.nome.localeCompare(b.nome));
 
     // Colaboradores críticos (detratores)
-    const colaboradoresCriticos = colaboradores.filter(c => c.categoria === 'detrator');
+  const colaboradoresCriticos = colaboradores.filter(c => c.categoria === 'detrator');
 
     const metricas = {
       ativos: users.length,
@@ -109,25 +114,24 @@ export class DashboardController {
         id: c.id,
         nome: c.nome,
         departamento: c.departamento,
-        npsDriverScore: c.npsDriverScore,
+        npsDriverScore: c.nota,
         categoria: c.categoria,
+        answersCount: 1
       })),
       departamentos,
       colaboradoresEmRisco: colaboradoresCriticos.map(c => ({
         id: c.id,
         nome: c.nome,
         departamento: c.departamento,
-        // risco derivado: detrator
         categoria: c.categoria,
       })),
+      pulsoAtual: { id: ultimaPesquisaPulso.id, titulo: ultimaPesquisaPulso.titulo, createdAt: ultimaPesquisaPulso.createdAt },
     };
   }
 
   async getEssScore(userId: number): Promise<{ ess: number, valores: number[], emotions: string[] }> {
     // Buscar apenas os últimos 30 dias
     const entries = await this.diaryService.findEntriesByUserId(userId, 30);
-    console.log('ESS DEBUG RAW ENTRIES:', JSON.stringify(entries, null, 2));
-    console.log('Datas usadas no ESS (últimos 30 dias):', entries.map(e => e.date || e.created_at));
     if (!entries || entries.length === 0) return { ess: 0, valores: [], emotions: [] };
     const emotionEssScore: { [key: string]: number } = {
       'Muito bem': 5,
@@ -151,7 +155,6 @@ export class DashboardController {
     const soma = valores.reduce((acc: number, d: number) => acc + d, 0);
     const media = valores.length > 0 ? soma / valores.length : 0;
     const ess = Math.round((media / 5) * 100);
-    console.log('ESS DEBUG -> Soma:', soma, '| Média:', media, '| ESS:', ess, '| Valores:', valores);
     return { ess, valores, emotions };
   }
 
