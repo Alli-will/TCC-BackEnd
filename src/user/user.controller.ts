@@ -9,6 +9,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UserRole } from '../auth/roles.decorator';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import * as crypto from 'crypto';
 
 @Controller('user')
 export class UserController {
@@ -105,10 +106,9 @@ export class UserController {
     if (!email) {
       return { message: 'Parâmetro email é obrigatório' };
     }
-    const user = await this.userService.findByEmail(email);
-    if (!user) return { message: 'Usuário não encontrado' };
-    const { password, ...rest } = user;
-    return rest;
+  const user = await this.userService.findByEmail(email);
+  if (!user) return { message: 'Usuário não encontrado' };
+  return user;
   }
 
   @Put('me')
@@ -132,13 +132,32 @@ export class UserController {
   @Get('me/avatar')
   @UseGuards(JwtAuthGuard)
   async getMyAvatar(@Req() req, @Res() res: Response) {
-  const user = await this.userService.findById(req.user.id) as any;
-  if (!user || !user.avatar) return res.status(404).send('Sem avatar');
-  const buf: Buffer = user.avatar as Buffer;
-  res.setHeader('Content-Type', user.avatarMimeType || 'image/png');
-  res.setHeader('Content-Length', buf.length.toString());
-  res.setHeader('Cache-Control', 'no-store');
-  return res.end(buf);
+  const user = await this.userService.findByIdWithAvatar(req.user.id) as any;
+    if (!user || !user.avatar) return res.status(404).send('Sem avatar');
+    const buf: Buffer = user.avatar as Buffer;
+    const mime = user.avatarMimeType || 'image/png';
+    // ETag baseado no conteúdo para cache eficiente
+    const etag = '"' + crypto.createHash('md5').update(buf).digest('hex') + '"';
+    const ifNoneMatch = (req.headers['if-none-match'] || '') as string;
+    if (ifNoneMatch && ifNoneMatch === etag) {
+      return res.status(304).end();
+    }
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Length', buf.length.toString());
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 dia
+    res.setHeader('ETag', etag);
+    return res.end(buf);
+  }
+
+  // Meta enxuta: informa apenas se há avatar e a versão (etag)
+  @Get('me/avatar/meta')
+  @UseGuards(JwtAuthGuard)
+  async getMyAvatarMeta(@Req() req) {
+  const user = await this.userService.findByIdWithAvatar(req.user.id) as any;
+    if (!user || !user.avatar) return { hasAvatar: false };
+    const buf: Buffer = user.avatar as Buffer;
+    const etag = crypto.createHash('md5').update(buf).digest('hex');
+    return { hasAvatar: true, mimeType: user.avatarMimeType || 'image/png', etag };
   }
 
   @Get('me/avatar/base64')
@@ -156,14 +175,46 @@ export class UserController {
 
   @Get(':id/avatar')
   @UseGuards(JwtAuthGuard)
-  async getAvatarById(@Param('id') id: string, @Res() res: Response) {
-  const user = await this.userService.findById(Number(id)) as any;
-  if (!user || !user.avatar) return res.status(404).send('Sem avatar');
-  const buf: Buffer = user.avatar as Buffer;
-  res.setHeader('Content-Type', user.avatarMimeType || 'image/png');
-  res.setHeader('Content-Length', buf.length.toString());
-  res.setHeader('Cache-Control', 'no-store');
-  return res.end(buf);
+  async getAvatarById(@Param('id') id: string, @Req() req, @Res() res: Response) {
+  const user = await this.userService.findByIdWithAvatar(Number(id)) as any;
+    if (!user || !user.avatar) return res.status(404).send('Sem avatar');
+    const buf: Buffer = user.avatar as Buffer;
+    const mime = user.avatarMimeType || 'image/png';
+    const etag = '"' + crypto.createHash('md5').update(buf).digest('hex') + '"';
+    const ifNoneMatch = (req.headers['if-none-match'] || '') as string;
+    if (ifNoneMatch && ifNoneMatch === etag) {
+      return res.status(304).end();
+    }
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Length', buf.length.toString());
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('ETag', etag);
+    return res.end(buf);
+  }
+
+  @Get(':id/avatar/base64')
+  @UseGuards(JwtAuthGuard)
+  async getAvatarByIdBase64(@Param('id') id: string) {
+  const user = await this.userService.findByIdWithAvatar(Number(id)) as any;
+    if (!user || !user.avatar) return { hasAvatar: false };
+    const buf: Buffer = user.avatar as Buffer;
+    return {
+      hasAvatar: true,
+      mimeType: user.avatarMimeType || 'image/png',
+      base64: buf.toString('base64')
+    };
+  }
+
+  // Meta por ID
+  @Get(':id/avatar/meta')
+  @UseGuards(JwtAuthGuard)
+  async getAvatarByIdMeta(@Param('id') id: string) {
+  // precisa incluir os bytes do avatar para calcular meta corretamente
+  const user = await this.userService.findByIdWithAvatar(Number(id)) as any;
+    if (!user || !user.avatar) return { hasAvatar: false };
+    const buf: Buffer = user.avatar as Buffer;
+    const etag = crypto.createHash('md5').update(buf).digest('hex');
+    return { hasAvatar: true, mimeType: user.avatarMimeType || 'image/png', etag };
   }
 
   @Put('me/avatar')

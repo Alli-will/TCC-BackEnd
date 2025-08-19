@@ -117,42 +117,108 @@ export class UserService {
 
   async findAll() {
     const users: any[] = await this.prisma.user.findMany({
-      where: { role: { not: 'support' as any } }, // excluir suporte das listagens
-      include: { department: true }
+      where: { role: { not: 'support' as any } },
+      select: {
+        id: true,
+        internal_id: true,
+        first_Name: true,
+        last_Name: true,
+        email: true,
+        role: true,
+        created_at: true,
+        companyId: true,
+        departmentId: true,
+        // avatar e password NÃO selecionados
+        department: { select: { id: true, name: true } }
+      }
     });
-    return users.map((u: any) => {
-      const { password, department, ...user } = u;
-      return {
-        ...user,
-        department: department ? department.name : null,
-        departmentId: department ? department.id : null,
-        role: user.role
-      };
-    });
+    return users.map((u: any) => ({
+      id: u.id,
+      internal_id: u.internal_id,
+      first_Name: u.first_Name,
+      last_Name: u.last_Name,
+      email: u.email,
+      role: u.role,
+      created_at: u.created_at,
+      companyId: u.companyId,
+      departmentId: u.departmentId,
+      department: u.department ? u.department.name : null
+    }));
   }
 
   async findOne(id: number) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+    const user: any = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        internal_id: true,
+        first_Name: true,
+        last_Name: true,
+        email: true,
+        role: true,
+        created_at: true,
+        companyId: true,
+        departmentId: true,
+        // sem password e sem avatar
+        company: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } }
+      }
+    });
     if (!user) throw new BadRequestException('Usuário não encontrado.');
-    const { password, ...result } = user;
-    return result;
+    return user;
   }
 
   async findByEmail(email: string) {
+    // Para autenticação precisamos da senha; não incluir avatar
     return await this.prisma.user.findUnique({
       where: { email },
-      include: { company: true },
+      select: {
+        id: true,
+        internal_id: true,
+        first_Name: true,
+        last_Name: true,
+        email: true,
+        role: true,
+        created_at: true,
+        companyId: true,
+        departmentId: true,
+        password: true,
+        company: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } }
+      }
     });
   }
 
   async findById(id: number) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { company: true },
+      select: {
+        id: true,
+        internal_id: true,
+        first_Name: true,
+        last_Name: true,
+        email: true,
+        role: true,
+        created_at: true,
+        companyId: true,
+        departmentId: true,
+        company: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } }
+      }
     });
     if (!user) return null;
-    const { password, ...result } = user;
-    return result;
+    return user as any;
+  }
+
+  async findByIdWithAvatar(id: number) {
+    return await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        avatar: true,
+        avatarMimeType: true
+      }
+    });
   }
 
   async updateUser(id: number, data: any) {
@@ -169,7 +235,7 @@ export class UserService {
     }
   try {
       const updated = await this.prisma.user.update({ where: { id }, data: updateData });
-      const { password, ...rest } = updated;
+      const { password, avatar, avatarMimeType, ...rest } = updated as any;
       return rest;
     } catch (e) {
       throw new BadRequestException(e.message);
@@ -198,13 +264,13 @@ export class UserService {
       // remover departamento
       deptConnect = { disconnect: true };
     }
-    const updated = await this.prisma.user.update({
+  const updated = await this.prisma.user.update({
       where: { id: targetUserId },
       data: { department: deptConnect },
       include: { department: true }
     });
-    const { password, department, ...rest } = updated as any;
-    return { ...rest, department: department ? department.name : null, departmentId: department ? department.id : null };
+  const { password, avatar, avatarMimeType, department, ...rest } = updated as any;
+  return { ...rest, department: department ? department.name : null, departmentId: department ? department.id : null };
   }
 
   async updateRole(targetUserId: number, dto: UpdateUserRoleDto, adminUserId: number) {
@@ -216,7 +282,7 @@ export class UserService {
     }
     try {
       const updated = await this.prisma.user.update({ where: { id: targetUserId }, data: { role: dto.role as PrismaUserRole } });
-      const { password, ...rest } = updated;
+      const { password, avatar, avatarMimeType, ...rest } = updated as any;
       return rest;
     } catch (e) {
       throw new BadRequestException(e.message);
