@@ -27,9 +27,11 @@ export class DepartmentService {
     });
   }
 
-  findAll() {
+  findAll(companyId: number) {
+    if (!companyId) return [];
     return this.prisma.department.findMany({
-      include: { company: true },
+      where: { companyId },
+      select: { id: true, name: true }
     });
   }
 

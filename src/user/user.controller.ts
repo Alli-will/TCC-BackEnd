@@ -15,10 +15,20 @@ import * as crypto from 'crypto';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+  // Lista usuários apenas da mesma empresa (exceto suporte que pode ver todos se query all=true)
   @Get()
-  async getAllUsers() {
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async getAllUsers(@Req() req, @Query('all') all?: string, @Query('companyId') companyIdQuery?: string) {
     try {
-      const users = await this.userService.findAll();
+      const requester = req.user;
+      const allowAll = requester.role === 'support' && all === 'true';
+      // Suporte pode pedir usuários de uma empresa específica via companyId
+      const requestedCompanyId = requester.role === 'support' && companyIdQuery ? Number(companyIdQuery) : undefined;
+      if (!allowAll && !requestedCompanyId && !requester.companyId) {
+        return { message: 'Usuário não vinculado a empresa.' };
+      }
+      const scopeCompany = allowAll ? undefined : (requestedCompanyId || requester.companyId);
+      const users = await this.userService.findAll(scopeCompany, allowAll);
       return users;
     } catch (error) {
       return {
@@ -28,27 +38,32 @@ export class UserController {
     }
   }
   @Post('register-access')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPPORT)
   @HttpCode(HttpStatus.CREATED)
-  async registerAccess(@Body() createUserDto: CreateUserDto) {
+  async registerAccess(@Body() createUserDto: CreateUserDto, @Req() req) {
     try {
+      // Apenas suporte (já garantido pelo guard) pode criar admin inicial para uma empresa existente
+      if (!createUserDto.companyId) {
+        return { message: 'companyId é obrigatório.' };
+      }
       const createdUser = await this.userService.createAccessUser(createUserDto);
       return {
-        message: 'Usuário (acesso) criado com sucesso!',
+        message: 'Usuário administrador criado com sucesso!',
         user: createdUser,
       };
     } catch (error) {
-      // Se for erro de validação, retorna detalhes
       if (error.getResponse && typeof error.getResponse === 'function') {
         const response = error.getResponse();
         if (response && response.message) {
           return {
-            message: 'Erro ao criar usuário de acesso.',
+            message: 'Erro ao criar usuário administrador.',
             details: response.message,
           };
         }
       }
       return {
-        message: 'Erro ao criar usuário de acesso.',
+        message: 'Erro ao criar usuário administrador.',
         error: error.response || error.message,
       };
     }
@@ -217,6 +232,24 @@ export class UserController {
     return { hasAvatar: true, mimeType: user.avatarMimeType || 'image/png', etag };
   }
 
+  // Endpoint de debug para investigar avatar "corrompido"
+  @Get(':id/avatar/debug')
+  @UseGuards(JwtAuthGuard)
+  async debugAvatar(@Param('id') id: string) {
+    const user = await this.userService.findByIdWithAvatar(Number(id)) as any;
+    if (!user || !user.avatar) return { hasAvatar: false };
+    const buf: Buffer = user.avatar as Buffer;
+    const etag = crypto.createHash('md5').update(buf).digest('hex');
+    const head = buf.subarray(0, 16);
+    return {
+      hasAvatar: true,
+      size: buf.length,
+      mimeType: user.avatarMimeType || 'image/png',
+      etag,
+      headHex: Array.from(head).map(b => b.toString(16).padStart(2, '0')).join(' ')
+    };
+  }
+
   @Put('me/avatar')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file', {
@@ -231,9 +264,45 @@ export class UserController {
     if (!file) {
       return { message: 'Nenhum arquivo enviado' };
     }
+    // Evita salvar strings tipo "[object Object]" por algum fluxo incorreto
+    if (!(file.buffer instanceof Buffer) || file.buffer.toString('utf8',0,15).startsWith('[object Object]')) {
+      return { message: 'Arquivo inválido (corrompido)' };
+    }
   // log simples de tamanho
     const updated = await this.userService.updateUser(req.user.id, { avatar: file.buffer, avatarMimeType: file.mimetype });
     return { message: 'Avatar atualizado', user: { ...updated, avatar: undefined } };
+  }
+
+  // Auditoria: lista avatares da empresa (apenas admin) com primeiros bytes
+  @Get('audit/avatars')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async auditAvatars(@Req() req) {
+    const companyId = req.user.companyId;
+    if (!companyId) return { message: 'Sem empresa' };
+    const list = await this.userService.findCompanyAvatars(companyId) as any[];
+    return list.map(u => {
+      const buf: Buffer | null = u.avatar as Buffer | null;
+      if (!buf) return { id: u.id, hasAvatar: false };
+      const head = buf.subarray(0, 16);
+      return {
+        id: u.id,
+        hasAvatar: true,
+        size: buf.length,
+        mimeType: u.avatarMimeType || 'unknown',
+        headHex: Array.from(head).map(b => b.toString(16).padStart(2, '0')).join(' ')
+      };
+    });
+  }
+
+  @Post('audit/avatars/clear-corrupted')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async clearCorrupted(@Req() req) {
+    const companyId = req.user.companyId;
+    if (!companyId) return { message: 'Sem empresa' };
+    const result = await this.userService.sanitizeCorruptedAvatars(companyId);
+    return { result };
   }
 
   @Put(':id/department')
@@ -251,7 +320,7 @@ export class UserController {
 
   @Put(':id/role')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPPORT)
   async updateUserRole(@Param('id') id: string, @Body() body: UpdateUserRoleDto, @Req() req) {
     try {
       const updated = await this.userService.updateRole(Number(id), body, req.user.id);

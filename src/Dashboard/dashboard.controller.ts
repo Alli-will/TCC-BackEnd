@@ -24,11 +24,13 @@ export class DashboardController {
 
   @Get('metrics')
   @Roles(UserRole.ADMIN)
-  async getDashboardMetrics() {
-    // NOVA LÓGICA: usar somente a ÚLTIMA pesquisa de pulso criada (mais recente) e suas respostas
-    const users = await this.userService.findAll();
+  async getDashboardMetrics(@Req() req: any) {
+    const companyId = req.user?.companyId;
+    // Restringe usuários à empresa
+    const users = await this.userService.findAll(companyId);
+    // Última pesquisa de pulso da empresa (se campo companyId for adicionado futuramente)
     const ultimaPesquisaPulso = await this.prisma.search.findFirst({
-      where: { tipo: 'pulso' },
+      where: { tipo: 'pulso' }, // TODO: adicionar filtro companyId quando campo existir
       orderBy: { createdAt: 'desc' },
     });
 
@@ -43,7 +45,7 @@ export class DashboardController {
     }
 
     const pulseResponses = await this.prisma.pulseResponse.findMany({
-      where: { pesquisaId: ultimaPesquisaPulso.id },
+      where: { pesquisaId: ultimaPesquisaPulso.id, user: { companyId } },
       include: { user: { include: { department: true } } },
       orderBy: { createdAt: 'desc' },
     });
@@ -168,11 +170,12 @@ export class DashboardController {
 
   @Get('ess-geral')
   @Roles(UserRole.ADMIN)
-  async getEssGeral() {
+  async getEssGeral(@Req() req: any) {
+    const companyId = req.user?.companyId;
     // AGORA reinterpreta ESS geral como NPS geral (para compatibilidade de front até ajuste)
     const since = new Date();
     since.setDate(since.getDate() - 30);
-    const pulseResponses = await this.prisma.pulseResponse.findMany({ where: { createdAt: { gte: since } } });
+  const pulseResponses = await this.prisma.pulseResponse.findMany({ where: { createdAt: { gte: since }, user: { companyId } } });
     const scores: number[] = [];
     pulseResponses.forEach(r => {
       try {

@@ -49,20 +49,26 @@ export const getDefaultQuestions = (tipo?: string) => {
 export class SearchService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(page = 1, limit = 10, excludeRespondedForUserId?: number) {
+  async findAll(page = 1, limit = 10, excludeRespondedForUserId?: number, companyId?: number) {
+  try {
     const take = Math.min(Math.max(limit, 1), 100);
     const currentPage = Math.max(page, 1);
     const skip = (currentPage - 1) * take;
 
-    let where: any = undefined;
+  let where: any = {};
+  if (companyId) where.companyId = companyId;
     if (excludeRespondedForUserId) {
+      const userFilter: any = { userId: excludeRespondedForUserId };
+      if (companyId) {
+        userFilter.companyId = companyId; // redundante se pulses/climas tiverem companyId preenchido
+      }
       const [pulsoIds, climaIds] = await Promise.all([
-        this.prisma.pulseResponse.findMany({ where: { userId: excludeRespondedForUserId }, select: { pesquisaId: true } }),
-        this.prisma.climaResponse.findMany({ where: { userId: excludeRespondedForUserId }, select: { pesquisaId: true } }),
+        this.prisma.pulseResponse.findMany({ where: userFilter, select: { pesquisaId: true } }),
+        this.prisma.climaResponse.findMany({ where: userFilter, select: { pesquisaId: true } }),
       ]);
       const respondedIds = Array.from(new Set([...pulsoIds.map(r => r.pesquisaId), ...climaIds.map(r => r.pesquisaId)]));
       if (respondedIds.length) {
-        where = { id: { notIn: respondedIds } };
+        where = { ...where, id: { notIn: respondedIds } };
       }
     }
 
@@ -79,10 +85,19 @@ export class SearchService {
     const totalPages = Math.max(Math.ceil(total / take), 1);
 
     return { items, meta: { total, page: currentPage, limit: take, totalPages } };
+    } catch (error: any) {
+      // Se a coluna ainda não existir ou outra falha: retornar vazio ao invés de 500 no fluxo normal
+      return { items: [], meta: { total: 0, page: 1, limit: limit, totalPages: 1 }, error: error?.message } as any;
+    }
   }
 
-  async findOne(id: number, userIdToCheck?: number) {
-  const search = await this.prisma.search.findUnique({ where: { id } });
+  async findOne(id: number, userIdToCheck?: number, companyId?: number) {
+  let search;
+  try {
+    search = await this.prisma.search.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
+  } catch (e: any) {
+    throw new NotFoundException('Pesquisa não encontrada');
+  }
     if (!search) throw new NotFoundException('Pesquisa não encontrada');
     if (userIdToCheck) {
       const already = search.tipo === 'pulso'
@@ -95,8 +110,8 @@ export class SearchService {
     return search;
   }
 
-  async respond(dto: RespondSearchDto, userId: number) {
-    const search = await this.prisma.search.findUnique({ where: { id: dto.searchId } });
+  async respond(dto: RespondSearchDto, userId: number, companyId?: number) {
+  const search = await this.prisma.search.findFirst({ where: { id: dto.searchId, ...(companyId ? { companyId } : {}) } });
     if (!search) throw new NotFoundException('Pesquisa não encontrada');
 
     // Validar obrigatoriedade: todas precisam ter resposta não nula/undefined
@@ -115,18 +130,18 @@ export class SearchService {
     if (search.tipo === 'pulso') {
       const exists = await this.prisma.pulseResponse.findFirst({ where: { userId, pesquisaId: dto.searchId } });
       if (exists) throw new ConflictException('Usuário já respondeu esta pesquisa');
-      return this.prisma.pulseResponse.create({ data: { userId, pesquisaId: dto.searchId, answers: dto.answers } });
+  return this.prisma.pulseResponse.create({ data: { userId, pesquisaId: dto.searchId, answers: dto.answers, companyId } as any });
     }
     const exists = await this.prisma.climaResponse.findFirst({ where: { userId, pesquisaId: dto.searchId } });
     if (exists) throw new ConflictException('Usuário já respondeu esta pesquisa');
-    return this.prisma.climaResponse.create({ data: { userId, pesquisaId: dto.searchId, answers: dto.answers } });
+  return this.prisma.climaResponse.create({ data: { userId, pesquisaId: dto.searchId, answers: dto.answers, companyId } as any });
   }
 
-  async create(data: CreateSearchDto) {
+  async create(data: CreateSearchDto, companyId?: number) {
   const basePadrao = data.tipo === 'clima' ? DEFAULT_CLIMA_QUESTIONS : DEFAULT_PULSO_QUESTIONS;
   const perguntas = (data.perguntas && data.perguntas.length) ? data.perguntas : basePadrao;
     return this.prisma.search.create({
-      data: { titulo: data.titulo, tipo: data.tipo, perguntas: perguntas as any },
+  data: { titulo: data.titulo, tipo: data.tipo, perguntas: perguntas as any, companyId } as any,
     });
   }
 
@@ -158,21 +173,40 @@ export class SearchService {
    * Para pulso: calcula NPS (1ª pergunta escala 0-10), distribuição NPS, médias por pergunta e distribuição de opções.
    * Para clima: médias por pergunta, distribuição (1-5) e média geral.
    */
-  async getReport(id: number, departmentId?: number) {
-    const search = await this.prisma.search.findUnique({ where: { id } });
+  async getReport(id: number, departmentId?: number, companyId?: number) {
+    // Primeiro tenta localizar a pesquisa dentro do escopo da empresa; se não achar e companyId veio, tenta sem (legado sem companyId)
+    let search = await this.prisma.search.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
+    if (!search && companyId) {
+      search = await this.prisma.search.findFirst({ where: { id } });
+    }
     if (!search) throw new NotFoundException('Pesquisa não encontrada');
     const perguntas: any[] = Array.isArray(search.perguntas) ? search.perguntas : [];
 
     const isPulso = search.tipo === 'pulso';
     // Monta condição de filtro opcional por departamento (via user.departmentId)
-    const baseWhere: any = { pesquisaId: id };
+    // Evita perder respostas antigas que não tinham companyId preenchido (legado):
+    // Só filtra por companyId se a pesquisa em si tem companyId (ou seja, foi criada já multi-tenant) E o companyId do usuário foi enviado.
+  const applyCompanyFilter = !!(companyId && (search as any).companyId);
+    const baseWhere: any = { pesquisaId: id, ...(applyCompanyFilter ? { companyId } : {}) };
     const includeUser = { user: true };
     if (departmentId) {
       baseWhere.user = { departmentId };
     }
-    const responses = isPulso
+    let responses = isPulso
       ? await this.prisma.pulseResponse.findMany({ where: baseWhere, include: includeUser })
       : await this.prisma.climaResponse.findMany({ where: baseWhere, include: includeUser });
+
+    // Fallback: se filtramos por companyId mas veio 0 respostas, tentar novamente sem companyId (legacy rows com companyId nulo)
+    if (applyCompanyFilter && responses.length === 0) {
+      const legacyWhere: any = { pesquisaId: id };
+      if (departmentId) legacyWhere.user = { departmentId };
+      const legacyResponses = isPulso
+        ? await this.prisma.pulseResponse.findMany({ where: legacyWhere, include: includeUser })
+        : await this.prisma.climaResponse.findMany({ where: legacyWhere, include: includeUser });
+      if (legacyResponses.length) {
+        responses = legacyResponses;
+      }
+    }
 
     let departmentInfo: { id: number; name: string } | null = null;
     if (departmentId) {

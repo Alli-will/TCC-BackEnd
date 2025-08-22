@@ -28,14 +28,18 @@ export class UserService {
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
+    const lastCompanyUser = await this.prisma.user.findFirst({
+      where: { companyId: company.id },
+      orderBy: { internal_id: 'desc' }
+    });
+    const nextInternal = lastCompanyUser ? (lastCompanyUser.internal_id || 0) + 1 : 1;
     const newUser = await this.prisma.user.create({
       data: {
-        
         ...((({ companyId, departmentId, ...rest }) => rest)(createUserDto)),
         password: hashedPassword,
         role: 'admin',
         company: { connect: { id: company.id } },
-        internal_id: 1,
+        internal_id: nextInternal,
       },
     });
     const { password, ...result } = newUser;
@@ -54,11 +58,11 @@ export class UserService {
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
-    const lastUser = await this.prisma.user.findFirst({
+    const lastCompanyUser = await this.prisma.user.findFirst({
       where: { companyId: creator.company.id },
-      orderBy: { internal_id: 'desc' },
+      orderBy: { internal_id: 'desc' }
     });
-    const nextInternalId = lastUser ? lastUser.internal_id + 1 : 1;
+    const nextInternalId = lastCompanyUser ? (lastCompanyUser.internal_id || 0) + 1 : 1;
 
     // Verifica se o departamento existe e pertence à empresa
     let department = null;
@@ -115,9 +119,14 @@ export class UserService {
     return result;
   }
 
-  async findAll() {
+  async findAll(companyId?: number, allowAllSupport = false) {
+    const where: any = { role: { not: 'support' as any } };
+    if (companyId) where.companyId = companyId;
+    // Se for suporte com allowAllSupport true, não filtra por role
+    if (allowAllSupport) delete where.role;
     const users: any[] = await this.prisma.user.findMany({
-      where: { role: { not: 'support' as any } },
+      where,
+  orderBy: { internal_id: 'asc' },
       select: {
         id: true,
         internal_id: true,
@@ -128,7 +137,6 @@ export class UserService {
         created_at: true,
         companyId: true,
         departmentId: true,
-        // avatar e password NÃO selecionados
         department: { select: { id: true, name: true } }
       }
     });
@@ -221,6 +229,47 @@ export class UserService {
     });
   }
 
+  async findCompanyAvatars(companyId: number) {
+    return this.prisma.user.findMany({
+      where: { companyId, avatar: { not: null } },
+      select: { id: true, avatar: true, avatarMimeType: true }
+    });
+  }
+
+  private isValidImage(buffer: Buffer, mime?: string | null): boolean {
+    if (!buffer || buffer.length < 8) return false;
+    const sig = buffer.subarray(0, 12);
+    const hex = Array.from(sig).map(b => b.toString(16).padStart(2, '0')).join(' ');
+    // JPEG
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return true;
+    // PNG
+    if (hex.startsWith('89 50 4e 47 0d 0a 1a 0a')) return true;
+    // GIF
+    if (sig[0] === 0x47 && sig[1] === 0x49 && sig[2] === 0x46 && sig[3] === 0x38) return true;
+    // WEBP (RIFF....WEBP)
+    if (sig[0] === 0x52 && sig[1] === 0x49 && sig[2] === 0x46 && sig[3] === 0x46 && sig[8] === 0x57 && sig[9] === 0x45 && sig[10] === 0x42 && sig[11] === 0x50) return true;
+    // Fallback: if declared mime is image/* and size > 100 bytes accept
+    if (mime && mime.startsWith('image/') && buffer.length > 100) return true;
+    return false;
+  }
+
+  async sanitizeCorruptedAvatars(companyId: number) {
+    const users = await this.prisma.user.findMany({ where: { companyId, avatar: { not: null } }, select: { id: true, avatar: true, avatarMimeType: true } });
+    const results: any[] = [];
+    for (const u of users as any[]) {
+      const buf: Buffer | null = u.avatar as Buffer | null;
+      if (!buf) continue;
+      const valid = this.isValidImage(buf, u.avatarMimeType);
+      if (!valid) {
+        await this.prisma.user.update({ where: { id: u.id }, data: { avatar: null, avatarMimeType: null } });
+        results.push({ id: u.id, action: 'cleared', size: buf.length });
+      } else {
+        results.push({ id: u.id, action: 'kept', size: buf.length });
+      }
+    }
+    return results;
+  }
+
   async updateUser(id: number, data: any) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Usuário não encontrado.');
@@ -273,13 +322,31 @@ export class UserService {
   return { ...rest, department: department ? department.name : null, departmentId: department ? department.id : null };
   }
 
-  async updateRole(targetUserId: number, dto: UpdateUserRoleDto, adminUserId: number) {
-    const admin = await this.prisma.user.findUnique({ where: { id: adminUserId } });
-    if (!admin) throw new BadRequestException('Administrador não encontrado');
-    if (admin.role !== 'admin') throw new BadRequestException('Apenas administrador pode alterar role');
-    if (admin.id === targetUserId && dto.role !== 'admin') {
-      throw new BadRequestException('Você não pode remover seu próprio papel de administrador.');
+  async updateRole(targetUserId: number, dto: UpdateUserRoleDto, requesterId: number) {
+    const requester = await this.prisma.user.findUnique({ where: { id: requesterId } });
+    if (!requester) throw new BadRequestException('Usuário solicitante não encontrado');
+    const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!target) throw new BadRequestException('Usuário alvo não encontrado');
+
+    const isSupport = requester.role === 'support';
+    const isAdmin = requester.role === 'admin';
+    if (!isSupport && !isAdmin) throw new BadRequestException('Sem permissão para alterar role');
+
+    // Admin só pode alterar dentro da sua empresa
+    if (isAdmin && requester.companyId !== target.companyId) {
+      throw new BadRequestException('Administrador não pode alterar usuário de outra empresa');
     }
+
+    // Proteções básicas
+    if (requester.id === targetUserId && dto.role !== requester.role) {
+      throw new BadRequestException('Não é permitido mudar o próprio papel desta forma.');
+    }
+
+    // Regras: suporte pode promover/demover para admin/employee, não cria outro suporte aqui
+    if (dto.role === 'support') {
+      throw new BadRequestException('Uso de role support não permitido por esta rota');
+    }
+
     try {
       const updated = await this.prisma.user.update({ where: { id: targetUserId }, data: { role: dto.role as PrismaUserRole } });
       const { password, avatar, avatarMimeType, ...rest } = updated as any;

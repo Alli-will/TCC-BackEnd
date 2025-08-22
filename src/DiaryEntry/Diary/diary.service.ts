@@ -112,25 +112,22 @@ export class DiaryService {
     });
   }
 
+  // Mantido apenas para compatibilidade de front-end; não bloqueia múltiplas entradas
   async hasEntryToday(userId: number): Promise<boolean> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const now = new Date();
-
     const entry = await this.prisma.diaryEntry.findFirst({
       where: {
         userId,
-        created_at: {
-          gte: today,
-          lte: now,
-        },
+        created_at: { gte: today, lte: now },
       },
+      select: { id: true },
     });
-
-    return !!entry;
+    return !!entry; // Informação apenas informativa
   }
 
-  async findAllDiaries(lastDays?: number) {
+  async findAllDiaries(lastDays?: number, companyId?: number) {
     const where: any = {};
     if (lastDays) {
       const now = new Date();
@@ -138,12 +135,12 @@ export class DiaryService {
       start.setDate(now.getDate() - lastDays);
       where.created_at = { gte: start, lte: now };
     }
+    if (companyId) {
+      where.user = { companyId };
+    }
     return await this.prisma.diaryEntry.findMany({
       where,
-      include: {
-        user: { include: { department: true } },
-        reasons: true,
-      },
+      include: { user: { include: { department: true } }, reasons: true },
     });
   }
 
@@ -311,7 +308,7 @@ export class DiaryService {
    * Retorna a porcentagem de cada emoção (triste, frustrado, neutro, tranquilo, realizado)
    * nas entradas do diário. Ideal para indicadores circulares no dashboard.
    */
-  async getEmotionPercentages() {
+  async getEmotionPercentages(companyId?: number) {
     // Emoções padronizadas e seus emojis/labels
     const EMOTIONS = [
       { key: 'Muito mal', label: 'Muito mal', emoji: '😢' },
@@ -321,7 +318,9 @@ export class DiaryService {
       { key: 'Muito bem', label: 'Muito bem', emoji: '😃' },
     ];
     // Busca todas as entradas
-    const entries = await this.prisma.diaryEntry.findMany();
+    const entries = await this.prisma.diaryEntry.findMany({
+      where: companyId ? { user: { companyId } } : undefined,
+    });
     const total = entries.length;
     // Conta cada emoção
     const counts: { [key: string]: number } = {};

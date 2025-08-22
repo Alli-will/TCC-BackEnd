@@ -23,26 +23,27 @@ export class DiaryController {
     return this.diaryService.findEntriesByUserId(userId); 
   }
 
+  // Endpoint legado usado pelo front ao logar; mantido para compatibilidade
   @UseGuards(JwtAuthGuard)
   @Get('has-entry-today')
   async hasEntryToday(@Request() req: any) {
-  const userId = req.user.id;
-  const hasEntry = await this.diaryService.hasEntryToday(userId);
-  return { hasEntry };
-}
+    const userId = req.user.id;
+    const hasEntry = await this.diaryService.hasEntryToday(userId);
+    return { hasEntry };
+  }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('all')
   @Roles(UserRole.ADMIN)
-  async findAllDiaries() {
-    return this.diaryService.findAllDiaries();
+  async findAllDiaries(@Request() req: any) {
+    return this.diaryService.findAllDiaries(undefined, req.user?.companyId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('emotion-percentages')
   @Roles(UserRole.ADMIN)
-  async getEmotionPercentages() {
-    return this.diaryService.getEmotionPercentages();
+  async getEmotionPercentages(@Request() req: any) {
+    return this.diaryService.getEmotionPercentages(req.user?.companyId);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -12,27 +12,32 @@ export class KnowledgeService {
   ) {}
 
   async create(dto: CreateKnowledgeDto, userId: number) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     const knowledge = await this.prisma.knowledge.create({
-      data: {
-        ...dto,
-        createdBy_user: userId,
-      },
+      data: { ...dto, createdBy_user: userId },
     });
-    // Notifica todos os usuários sobre o novo conhecimento
-    await this.notificationService.notifyAllUsers('Novo conhecimento cadastrado!');
+    await this.notificationService.notifyAllUsers('Novo conhecimento cadastrado!', user?.companyId || undefined);
     return knowledge;
   }
 
-  async findAll(includeDeleted = false) {
+  async findAll(includeDeleted = false, companyId?: number, allowAllSupport = false) {
+    const whereBase: any = includeDeleted ? {} : { deleted_at: null };
+    if (companyId && !allowAllSupport) {
+      whereBase.createdBy = { companyId };
+    }
     return this.prisma.knowledge.findMany({
-      where: includeDeleted ? undefined : { deleted_at: null },
+      where: whereBase,
       include: { createdBy: true },
     });
   }
 
-  async findOne(id: number, includeDeleted = false) {
+  async findOne(id: number, includeDeleted = false, companyId?: number, allowAllSupport = false) {
+    const whereBase: any = includeDeleted ? { id } : { id, deleted_at: null };
+    if (companyId && !allowAllSupport) {
+      whereBase.createdBy = { companyId };
+    }
     const knowledge = await this.prisma.knowledge.findFirst({
-      where: includeDeleted ? { id } : { id, deleted_at: null },
+      where: whereBase,
       include: { createdBy: true },
     });
     if (!knowledge) throw new NotFoundException('Conhecimento não encontrado');

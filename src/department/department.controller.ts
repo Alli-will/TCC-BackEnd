@@ -22,8 +22,10 @@ export class DepartmentController {
   }
 
   @Get()
-  findAll() {
-    return this.departmentService.findAll();
+  @UseGuards(JwtAuthGuard)
+  findAll(@Req() req: any) {
+    const user = req.user;
+    return this.departmentService.findAll(user.companyId);
   }
 
   @Put(':id')

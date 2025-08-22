@@ -13,6 +13,8 @@ model Search {
   tipo      String
   perguntas Json
   createdAt DateTime @default(now())
+  companyId Int?
+  company   Company? @relation(fields: [companyId], references: [id])
 
   @@map("searches")
 }
@@ -39,6 +41,7 @@ model User {
   // Relação também opcional
   company        Company?        @relation(fields: [companyId], references: [id])
   department     Department?     @relation(fields: [departmentId], references: [id])
+  @@unique([companyId, internal_id])
 }
 
 model Company {
@@ -54,6 +57,9 @@ model Company {
   phone          Int
   departments    Department[]
   users          User[]
+  searches       Search[]
+  pulseResponses PulseResponse[]
+  climaResponses ClimaResponse[]
 }
 
 model Department {
@@ -118,6 +124,9 @@ model PulseResponse {
   answers    Json
   pesquisaId Int
   user       User     @relation(fields: [userId], references: [id])
+  // Redundância para segmentar relatórios multiempresa sem join profundo
+  companyId  Int?
+  company    Company? @relation(fields: [companyId], references: [id])
 
   @@unique([userId, pesquisaId])
 }
@@ -129,6 +138,8 @@ model ClimaResponse {
   answers    Json
   pesquisaId Int
   user       User     @relation(fields: [userId], references: [id])
+  companyId  Int?
+  company    Company? @relation(fields: [companyId], references: [id])
 
   @@unique([userId, pesquisaId])
 }
