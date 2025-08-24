@@ -82,6 +82,64 @@ export class SearchService {
       }),
     ]);
 
+    // Anexar contagem de respondentes (relatório rápido) para cada pesquisa.
+    // Critério:
+    //  - pulso: usuários distintos com nota válida (0-10) na primeira pergunta (considerando somente resposta mais recente por usuário)
+    //  - clima: total de registros de resposta (1 por usuário)
+    try {
+      if (items.length) {
+        const pulsoIds = items.filter(i => i.tipo === 'pulso').map(i => i.id);
+        const climaIds = items.filter(i => i.tipo === 'clima').map(i => i.id);
+        const pulseResponses = pulsoIds.length ? await this.prisma.pulseResponse.findMany({
+          where: {
+            pesquisaId: { in: pulsoIds },
+            ...(companyId ? { user: { companyId } } : {}),
+          },
+          include: { user: true },
+          orderBy: { createdAt: 'desc' },
+        }) : [];
+        const climaResponses = climaIds.length ? await this.prisma.climaResponse.findMany({
+          where: {
+            pesquisaId: { in: climaIds },
+            ...(companyId ? { user: { companyId } } : {}),
+          },
+          select: { pesquisaId: true },
+        }) : [];
+
+        const pulsoCountMap: Record<number, number> = {};
+        // Map searchId -> set of userIds counted
+        const seenPerSearch: Record<number, Set<number>> = {};
+        for (const resp of pulseResponses as any[]) {
+          const sId = resp.pesquisaId;
+            if (!seenPerSearch[sId]) seenPerSearch[sId] = new Set<number>();
+          const userId = resp.user?.id;
+          if (!userId || seenPerSearch[sId].has(userId)) continue; // já contamos a mais recente
+          let first: any;
+          try {
+            const arr = Array.isArray(resp.answers) ? resp.answers : (resp.answers as any);
+            first = arr?.[0]?.resposta;
+          } catch { first = undefined; }
+          if (typeof first === 'number' && first >= 0 && first <= 10) {
+            seenPerSearch[sId].add(userId);
+            pulsoCountMap[sId] = seenPerSearch[sId].size;
+          }
+        }
+
+        const climaCountMap: Record<number, number> = {};
+        for (const c of climaResponses) {
+          climaCountMap[c.pesquisaId] = (climaCountMap[c.pesquisaId] || 0) + 1;
+        }
+
+        items.forEach(it => {
+          (it as any).respondentes = it.tipo === 'pulso'
+            ? (pulsoCountMap[it.id] || 0)
+            : (climaCountMap[it.id] || 0);
+        });
+      }
+    } catch (e) {
+      // Se falhar, apenas ignora para não quebrar listagem
+    }
+
     const totalPages = Math.max(Math.ceil(total / take), 1);
 
     return { items, meta: { total, page: currentPage, limit: take, totalPages } };

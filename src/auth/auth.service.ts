@@ -11,8 +11,12 @@ export class AuthService {
 
   async login(email: string, password: string) {
   const user = await this.userService.findByEmail(email);
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      throw new UnauthorizedException('Credenciais inválidas');
+    if (!user) {
+      throw new UnauthorizedException('Usuário não cadastrado');
+    }
+    const passwordOk = await bcrypt.compare(password, user.password);
+    if (!passwordOk) {
+      throw new UnauthorizedException('Senha incorreta');
     }
 
     const u: any = user;

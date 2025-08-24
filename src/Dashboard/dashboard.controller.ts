@@ -28,11 +28,20 @@ export class DashboardController {
     const companyId = req.user?.companyId;
     // Restringe usuários à empresa
     const users = await this.userService.findAll(companyId);
-    // Última pesquisa de pulso da empresa (se campo companyId for adicionado futuramente)
-    const ultimaPesquisaPulso = await this.prisma.search.findFirst({
-      where: { tipo: 'pulso' }, // TODO: adicionar filtro companyId quando campo existir
+    // Última pesquisa de pulso da empresa.
+    // 1) Tenta dentro do escopo da empresa (companyId preenchido)
+    // 2) Fallback legado: busca pesquisas sem companyId (criadas antes da multi-tenant) para não misturar de outras empresas
+    let ultimaPesquisaPulso = await this.prisma.search.findFirst({
+      where: { tipo: 'pulso', companyId },
       orderBy: { createdAt: 'desc' },
     });
+    if (!ultimaPesquisaPulso) {
+      // Fallback legado: pesquisas antigas sem companyId
+      ultimaPesquisaPulso = await this.prisma.search.findFirst({
+        where: { tipo: 'pulso', companyId: null },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
 
     if (!ultimaPesquisaPulso) {
       return {
@@ -45,7 +54,11 @@ export class DashboardController {
     }
 
     const pulseResponses = await this.prisma.pulseResponse.findMany({
-      where: { pesquisaId: ultimaPesquisaPulso.id, user: { companyId } },
+      where: {
+        pesquisaId: ultimaPesquisaPulso.id,
+        // Garante isolamento: só respostas de usuários da empresa atual
+        user: { companyId },
+      },
       include: { user: { include: { department: true } } },
       orderBy: { createdAt: 'desc' },
     });
@@ -129,6 +142,54 @@ export class DashboardController {
       })),
       pulsoAtual: { id: ultimaPesquisaPulso.id, titulo: ultimaPesquisaPulso.titulo, createdAt: ultimaPesquisaPulso.createdAt },
     };
+  }
+
+  @Get('metrics/raw')
+  @Roles(UserRole.ADMIN)
+  async getDashboardMetricsRaw(@Req() req: any) {
+    const companyId = req.user?.companyId;
+    let ultimaPesquisaPulso = await this.prisma.search.findFirst({
+      where: { tipo: 'pulso', companyId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!ultimaPesquisaPulso) {
+      ultimaPesquisaPulso = await this.prisma.search.findFirst({
+        where: { tipo: 'pulso', companyId: null },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+    if (!ultimaPesquisaPulso) return { pulsoAtual: null, responses: [] };
+    const pulseResponses = await this.prisma.pulseResponse.findMany({
+      where: { pesquisaId: ultimaPesquisaPulso.id, user: { companyId } },
+      include: { user: { select: { id: true, first_Name: true, last_Name: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    const mapped = pulseResponses.map(r => {
+      let firstScore: any = undefined;
+      try {
+        const arr = Array.isArray(r.answers) ? r.answers : (r.answers as any);
+        firstScore = arr?.[0]?.resposta;
+      } catch {}
+      return {
+        responseId: r.id,
+        userId: r.user?.id,
+        userName: `${r.user?.first_Name || ''} ${r.user?.last_Name || ''}`.trim(),
+        firstScore,
+        createdAt: r.createdAt,
+        companyId: r.companyId,
+      };
+    });
+    // Identificar duplicados por usuário
+    const duplicates: Record<string, any[]> = {};
+    mapped.forEach(m => {
+      if (!m.userId) return;
+      if (!duplicates[m.userId]) duplicates[m.userId] = [];
+      duplicates[m.userId].push(m);
+    });
+    Object.keys(duplicates).forEach(k => {
+      if (duplicates[k].length < 2) delete duplicates[k];
+    });
+    return { pulsoAtual: { id: ultimaPesquisaPulso.id, titulo: ultimaPesquisaPulso.titulo }, totalRaw: mapped.length, duplicates, responses: mapped };
   }
 
   async getEssScore(userId: number): Promise<{ ess: number, valores: number[], emotions: string[] }> {

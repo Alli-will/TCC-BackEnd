@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsPhoneNumber, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Matches, Length } from 'class-validator';
 
 export class CreateCompanyDto {
   @IsString({message: 'Obrigatorio informar o Nome'})
@@ -13,9 +13,9 @@ export class CreateCompanyDto {
   @IsNotEmpty({ message: 'Endereço deve ser válido' })
   address: string;
 
-  @IsNumber({},{ message: 'Obrigatorio informar o CEP' }) 
-  @IsNotEmpty ({ message: 'O CEP deve ser um número válido' })
-  addressZipCode: number;
+  @IsString({ message: 'Obrigatorio informar o CEP' })
+  @Matches(/^\d{8}$/,{ message: 'CEP deve conter 8 dígitos' })
+  addressZipCode: string;
 
   @IsString({message: 'Obrigatorio informar o Bairro'})
   @IsNotEmpty({ message: 'Bairro deve ser válido' })
@@ -34,9 +34,9 @@ export class CreateCompanyDto {
   @IsNotEmpty({ message: 'País deve ser válido' })
   country: string;
 
-  @IsNumber({},{ message: 'Obrigatorio informar o Telefone' })
-  @IsNotEmpty({ message: 'Telefone deve ser um número válido' })
-  phone: number;
+  @IsString({ message: 'Obrigatorio informar o Telefone' })
+  @Matches(/^\d{10,11}$/,{ message: 'Telefone deve ter 10 ou 11 dígitos (DDD + número)' })
+  phone: string;
 
 
 

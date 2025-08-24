@@ -14,7 +14,12 @@ export class CompanyService {
     if (existing) {
       throw new Error('Já existe uma empresa cadastrada com esse CNPJ.');
     }
-    return this.prisma.company.create({ data: dto });
+    const data = {
+      ...dto,
+      addressZipCode: Number(dto.addressZipCode),
+      phone: dto.phone, // já vem digits only
+    } as any;
+    return this.prisma.company.create({ data });
   }
 
   async findAll() {

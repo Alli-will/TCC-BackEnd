@@ -54,7 +54,7 @@ model Company {
   municipality   String
   state          String
   country        String
-  phone          Int
+  phone          String
   departments    Department[]
   users          User[]
   searches       Search[]
