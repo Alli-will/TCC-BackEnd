@@ -33,6 +33,8 @@ model User {
   departmentId   Int?
   avatar         Bytes?
   avatarMimeType String?
+  resetToken     String?         @unique
+  resetTokenExpires DateTime?
   climaResponses ClimaResponse[]
   diaryEntries   DiaryEntry[]
   knowledges     Knowledge[]     @relation("UserToKnowledge")
