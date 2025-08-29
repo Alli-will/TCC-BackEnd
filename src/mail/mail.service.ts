@@ -1,39 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
+import axios from 'axios';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private transporter: nodemailer.Transporter | null = null;
 
-  constructor(private readonly config: ConfigService) {
-    const host = this.config.get<string>('SMTP_HOST');
-    const port = this.config.get<number>('SMTP_PORT');
-    const user = this.config.get<string>('SMTP_USER');
-    const pass = this.config.get<string>('SMTP_PASS');
-
-    if (host && port && user && pass) {
-      const debugFlag = this.config.get<string>('SMTP_DEBUG');
-      const enableDebug = debugFlag === '1' || debugFlag === 'true';
-      this.transporter = nodemailer.createTransport({
-        host,
-        port: Number(port),
-        secure: Number(port) === 465, // 465 = SSL, 587 = STARTTLS
-        auth: { user, pass },
-        logger: enableDebug,
-        debug: enableDebug,
-      } as any);
-    } else {
-      this.logger.warn('SMTP environment variables not fully set; emails will be logged only.');
-    }
-  }
+  constructor(private readonly config: ConfigService) {}
 
   async sendPasswordReset(to: string, token: string) {
     const appUrl = this.config.get<string>('APP_URL') || 'https://front-tccc.vercel.app';
     const resetLink = `${appUrl}/nova-senha/${token}`;
     const subject = 'Recuperação de senha';
-    const text = `Você solicitou a redefinição de senha. Acesse: ${resetLink} (válido por 30 minutos). Se não foi você, ignore.`;
     const html = `
       <div style="background:#f4fafc;padding:12px 0 24px 0;min-height:40vh;font-family:sans-serif;">
         <div style="max-width:420px;margin:32px auto 0 auto;background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(56,182,165,0.10);padding:28px 22px 22px 22px;">
@@ -47,21 +25,28 @@ export class MailService {
         </div>
       </div>
     `;
-
-    if (this.transporter) {
-      try {
-  await this.transporter.sendMail({
-    from: this.config.get<string>('SMTP_FROM') || 'no-reply@example.com',
-    to,
-    subject,
-    text,
-    html,
-  });
-  this.logger.log(`Password reset email sent to ${to}`);
-        return true;
-      } catch (e) {
-        this.logger.error('Failed to send reset email', e as any);
-      }
+    const apiKey = this.config.get<string>('BREVO_API_KEY');
+    const from = { email: (this.config.get<string>('SMTP_FROM') || 'no-reply@example.com').replace(/.*<(.*)>.*/,'$1'), name: 'Calma Mente' };
+    try {
+      await axios.post(
+        'https://api.brevo.com/v3/smtp/email',
+        {
+          sender: from,
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+        },
+        {
+          headers: {
+            'api-key': apiKey,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      this.logger.log(`Password reset email sent to ${to}`);
+      return true;
+    } catch (e) {
+      this.logger.error('Failed to send reset email', e?.response?.data || e);
     }
     this.logger.log(`Password reset token for ${to}: ${token}`);
     return false;
