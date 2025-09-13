@@ -18,9 +18,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any): Promise<{ id: number; email: string; role: string; companyId: number }> {
-    const user = await this.userService.findById(payload.sub);
+    const user = await this.userService.findById(payload.sub) as any;
     if (!user) {
       throw new UnauthorizedException('Token inválido');
+    }
+    if (user.ativo === false) {
+      throw new UnauthorizedException('Usuário inativo. Valide com um administrador.');
     }
     return {
       id: user.id,

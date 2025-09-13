@@ -17,7 +17,7 @@ export class AuthService {
   private emailCooldown: Map<string, number> = new Map();
   private EMAIL_COOLDOWN_MS = 60_000; // 1 min entre solicitações por email
   private IP_WINDOW_MS = 15 * 60_000; //janela de tempo para contar tentativas por IP
-  private IP_MAX = 20; // máx 20 requisições de reset por IP 
+  private IP_MAX = 20; // máP x 20 requisições de reset por I
   private hashEmail(email: string) { return crypto.createHash('sha256').update(email.toLowerCase()).digest('hex'); }
 
   async login(email: string, password: string) {
@@ -28,6 +28,9 @@ export class AuthService {
     const passwordOk = await bcrypt.compare(password, user.password);
     if (!passwordOk) {
       throw new UnauthorizedException('Senha incorreta');
+    }
+    if ((user as any).ativo === false) {
+      throw new UnauthorizedException('Usuário inativo. Valide com um administrador.');
     }
 
     const payload = {
@@ -75,8 +78,7 @@ export class AuthService {
       await this.prisma.user.update({ where: { id: user.id }, data: { resetToken: raw, resetTokenExpires: expires } as any });
       this.mail.sendPasswordReset(email, raw).catch(()=>{});
     }
-    // Resposta sempre genérica para evitar enumeração
-    return { ok: true, message: 'Se o e-mail existir, enviaremos instruções.' };
+    return { ok: true, message: 'Se o e-mail existir, enviaremos instruções para redefinir a senha. Caso não encontre nossa mensagem na caixa de entrada, verifique também a pasta de spam.' };
   }
 
   async resetPassword(token: string, newPassword: string) {

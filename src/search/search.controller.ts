@@ -17,12 +17,10 @@ export class SearchController {
     const l = limit ? Number(limit) : 10;
     const role = req?.user?.role;
     const wantAll = role === 'admin' && (all === '1' || all === 'true');
-    // Se não for admin ou não solicitou all=1, exclui respondidas.
     const ex = wantAll ? undefined : req?.user?.id;
     try {
       return this.searchService.findAll(p, l, ex, req?.user?.companyId);
     } catch (e: any) {
-      // Fallback seguro
       return { items: [], meta: { total: 0, page: p, limit: l, totalPages: 1 }, error: 'Falha ao carregar pesquisas', detail: e?.message };
     }
   }

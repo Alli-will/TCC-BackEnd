@@ -8,7 +8,6 @@ export class IsUniqueEmailConstraint implements ValidatorConstraintInterface {
   constructor(private prisma: PrismaService) {}
 
   async validate(email: string, args: ValidationArguments) {
-    // Se o campo ainda não foi preenchido ou já falhou em outro validador, não tenta consultar
     if (!email) return true;
     const normalized = email.trim().toLowerCase();
     try {
@@ -18,7 +17,6 @@ export class IsUniqueEmailConstraint implements ValidatorConstraintInterface {
       });
       return !user;
     } catch (e) {
-      // Em caso de qualquer erro de prisma, não bloquear validação por falha técnica
       return true;
     }
   }

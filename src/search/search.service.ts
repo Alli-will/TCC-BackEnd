@@ -137,14 +137,12 @@ export class SearchService {
         });
       }
     } catch (e) {
-      // Se falhar, apenas ignora para não quebrar listagem
     }
 
     const totalPages = Math.max(Math.ceil(total / take), 1);
 
     return { items, meta: { total, page: currentPage, limit: take, totalPages } };
     } catch (error: any) {
-      // Se a coluna ainda não existir ou outra falha: retornar vazio ao invés de 500 no fluxo normal
       return { items: [], meta: { total: 0, page: 1, limit: limit, totalPages: 1 }, error: error?.message } as any;
     }
   }
@@ -196,10 +194,17 @@ export class SearchService {
   }
 
   async create(data: CreateSearchDto, companyId?: number) {
-  const basePadrao = data.tipo === 'clima' ? DEFAULT_CLIMA_QUESTIONS : DEFAULT_PULSO_QUESTIONS;
-  const perguntas = (data.perguntas && data.perguntas.length) ? data.perguntas : basePadrao;
+    const basePadrao = data.tipo === 'clima' ? DEFAULT_CLIMA_QUESTIONS : DEFAULT_PULSO_QUESTIONS;
+    const perguntasIn = (data.perguntas && data.perguntas.length) ? data.perguntas : basePadrao;
+    // Garante formato consistente no JSON, preservando questionId quando enviado
+    const perguntas = perguntasIn.map((p: any) => ({
+      texto: p.texto,
+      opcoes: Array.isArray(p.opcoes) ? p.opcoes : [],
+      obrigatoria: !!p.obrigatoria,
+      ...(p.questionId ? { questionId: Number(p.questionId) } : {}),
+    }));
     return this.prisma.search.create({
-  data: { titulo: data.titulo, tipo: data.tipo, perguntas: perguntas as any, companyId } as any,
+      data: { titulo: data.titulo, tipo: data.tipo, perguntas: perguntas as any, companyId } as any,
     });
   }
 
@@ -232,7 +237,7 @@ export class SearchService {
    * Para clima: médias por pergunta, distribuição (1-5) e média geral.
    */
   async getReport(id: number, departmentId?: number, companyId?: number) {
-    // Primeiro tenta localizar a pesquisa dentro do escopo da empresa; se não achar e companyId veio, tenta sem (legado sem companyId)
+    // Primeiro tenta localizar a pesquisa dentro do escopo da empresa;
     let search = await this.prisma.search.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!search && companyId) {
       search = await this.prisma.search.findFirst({ where: { id } });

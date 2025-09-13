@@ -119,11 +119,14 @@ export class UserService {
     return result;
   }
 
-  async findAll(companyId?: number, allowAllSupport = false) {
+  async findAll(companyId?: number, allowAllSupport = false, status: 'ativos' | 'inativos' | 'todos' = 'ativos') {
     const where: any = { role: { not: 'support' as any } };
     if (companyId) where.companyId = companyId;
     // Se for suporte com allowAllSupport true, não filtra por role
     if (allowAllSupport) delete where.role;
+    // Status filter: por padrão somente ativos
+    if (status === 'ativos') where.ativo = true;
+    else if (status === 'inativos') where.ativo = false;
     const users: any[] = await this.prisma.user.findMany({
       where,
   orderBy: { internal_id: 'asc' },
@@ -135,6 +138,7 @@ export class UserService {
         email: true,
         role: true,
         created_at: true,
+        ativo: true,
         companyId: true,
         departmentId: true,
         department: { select: { id: true, name: true } }
@@ -148,6 +152,7 @@ export class UserService {
       email: u.email,
       role: u.role,
       created_at: u.created_at,
+      ativo: u.ativo,
       companyId: u.companyId,
       departmentId: u.departmentId,
       department: u.department ? u.department.name : null
@@ -190,6 +195,7 @@ export class UserService {
         created_at: true,
         companyId: true,
         departmentId: true,
+  ativo: true,
         password: true,
         company: { select: { id: true, name: true } },
         department: { select: { id: true, name: true } }
@@ -210,6 +216,7 @@ export class UserService {
         created_at: true,
         companyId: true,
         departmentId: true,
+  ativo: true,
         company: { select: { id: true, name: true } },
         department: { select: { id: true, name: true } }
       }
@@ -354,5 +361,47 @@ export class UserService {
     } catch (e) {
       throw new BadRequestException(e.message);
     }
+  }
+
+  async setActive(userId: number, active: boolean, requesterId: number) {
+    const requester = await this.prisma.user.findUnique({ where: { id: requesterId } });
+    if (!requester) throw new BadRequestException('Solicitante não encontrado');
+    const target = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!target) throw new BadRequestException('Usuário alvo não encontrado');
+    if (requester.role !== 'admin' && requester.role !== 'support') {
+      throw new BadRequestException('Sem permissão');
+    }
+    // Admin só altera dentro da própria empresa
+    if (requester.role === 'admin' && requester.companyId !== target.companyId) {
+      throw new BadRequestException('Fora do escopo da empresa');
+    }
+    const updated = await this.prisma.user.update({ where: { id: userId }, data: { ativo: active } });
+    const { password, avatar, avatarMimeType, ...rest } = updated as any;
+    return rest;
+  }
+
+  async safeDelete(userId: number, requesterId: number) {
+    const requester = await this.prisma.user.findUnique({ where: { id: requesterId } });
+    if (!requester) throw new BadRequestException('Solicitante não encontrado');
+    const target = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!target) throw new BadRequestException('Usuário alvo não encontrado');
+    if (requester.role !== 'admin' && requester.role !== 'support') {
+      throw new BadRequestException('Sem permissão');
+    }
+    if (requester.role === 'admin' && requester.companyId !== target.companyId) {
+      throw new BadRequestException('Fora do escopo da empresa');
+    }
+    // Verificar registros vinculados: respostas de pulso/clima, diário, notificações
+    const counts = await this.prisma.$transaction([
+      this.prisma.pulseResponse.count({ where: { userId: userId } }),
+      this.prisma.climaResponse.count({ where: { userId: userId } }),
+      this.prisma.notification.count({ where: { userId: userId } }),
+    ]);
+    const total = counts.reduce((a, b) => a + b, 0);
+    if (total > 0) {
+      throw new BadRequestException('Não é possível excluir: usuário possui registros no sistema. Inative-o.');
+    }
+    await this.prisma.user.delete({ where: { id: userId } });
+    return { deleted: true };
   }
 }

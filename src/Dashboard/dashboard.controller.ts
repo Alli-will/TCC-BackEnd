@@ -3,7 +3,6 @@ import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 import { Roles, UserRole } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UserService } from '../user/user.service';
-import { DiaryService } from '../DiaryEntry/Diary/diary.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Controller('dashboard')
@@ -11,7 +10,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class DashboardController {
   constructor(
     private readonly userService: UserService,
-    private readonly diaryService: DiaryService, // mantido temporariamente para endpoint legacy ESS por usuário
     private readonly prisma: PrismaService,
   ) {}
 
@@ -30,13 +28,11 @@ export class DashboardController {
     const users = await this.userService.findAll(companyId);
     // Última pesquisa de pulso da empresa.
     // 1) Tenta dentro do escopo da empresa (companyId preenchido)
-    // 2) Fallback legado: busca pesquisas sem companyId (criadas antes da multi-tenant) para não misturar de outras empresas
     let ultimaPesquisaPulso = await this.prisma.search.findFirst({
       where: { tipo: 'pulso', companyId },
       orderBy: { createdAt: 'desc' },
     });
     if (!ultimaPesquisaPulso) {
-      // Fallback legado: pesquisas antigas sem companyId
       ultimaPesquisaPulso = await this.prisma.search.findFirst({
         where: { tipo: 'pulso', companyId: null },
         orderBy: { createdAt: 'desc' },
@@ -63,13 +59,13 @@ export class DashboardController {
       orderBy: { createdAt: 'desc' },
     });
 
-    // NPS CLÁSSICO no dashboard: apenas a PRIMEIRA pergunta (nota de recomendação) da última pesquisa, resposta mais recente por usuário
+    // eNPS no dashboard: apenas a PRIMEIRA pergunta da última pesquisa, resposta mais recente por usuário
     interface ColabNps { id: number; nome: string; departamento: string; nota: number; categoria: 'promotor' | 'neutro' | 'detrator'; createdAt: Date; }
     const latestByUser: Record<number, ColabNps> = {};
     pulseResponses.forEach(resp => {
       const user = resp.user as any;
       const uid = user.id;
-      if (latestByUser[uid]) return; // já temos a resposta mais recente (lista está ordenada desc)
+      if (latestByUser[uid]) return; 
       let arr: any[] = [];
       try { arr = Array.isArray(resp.answers) ? resp.answers : (resp.answers as any); } catch { arr = []; }
       const first = arr && arr[0] ? arr[0].resposta : undefined;
@@ -95,7 +91,7 @@ export class DashboardController {
     const detratores = colaboradores.filter(c => c.categoria === 'detrator').length;
     const nps = totalRespondentes ? Math.round(((promotores / totalRespondentes) - (detratores / totalRespondentes)) * 100) : 0;
 
-    // Departamentos: computar NPS por departamento (somente com respondentes)
+    // Departamentos: computar eNPS por departamento (somente com respondentes)
     const deptMap: Record<string, { prom: number; det: number; total: number }> = {};
     colaboradores.forEach(c => {
       const dept = c.departamento || 'Sem departamento';
@@ -193,31 +189,26 @@ export class DashboardController {
   }
 
   async getEssScore(userId: number): Promise<{ ess: number, valores: number[], emotions: string[] }> {
-    // Buscar apenas os últimos 30 dias
-    const entries = await this.diaryService.findEntriesByUserId(userId, 30);
-    if (!entries || entries.length === 0) return { ess: 0, valores: [], emotions: [] };
-    const emotionEssScore: { [key: string]: number } = {
-      'Muito bem': 5,
-      'Bem': 4,
-      'Neutro': 3,
-      'Mal': 2,
-      'Muito mal': 1
-    };
+    // Recomputar ESS a partir das respostas do pulso (últimos 30 dias)
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    const responses = await this.prisma.pulseResponse.findMany({
+      where: { createdAt: { gte: since }, userId },
+      orderBy: { createdAt: 'desc' },
+      select: { answers: true },
+    });
     const valores: number[] = [];
     const emotions: string[] = [];
-    entries.forEach((d: any) => {
-      if (typeof d.bemEstar === 'number') {
-        valores.push(d.bemEstar);
-        emotions.push('bemEstar');
-      } else if (typeof d.emotion === 'string') {
-        const emo = d.emotion; // Removido .toLowerCase()
-        valores.push(emotionEssScore[emo] ?? 3);
-        emotions.push(emo);
-      }
+    responses.forEach(r => {
+      try {
+        const arr = Array.isArray(r.answers) ? r.answers : (r.answers as any);
+        const v = arr?.[0]?.resposta; // usar a primeira pergunta do pulso (eNPS 0..10)
+        if (typeof v === 'number' && v >= 0 && v <= 10) valores.push(v);
+      } catch {}
     });
-    const soma = valores.reduce((acc: number, d: number) => acc + d, 0);
-    const media = valores.length > 0 ? soma / valores.length : 0;
-    const ess = Math.round((media / 5) * 100);
+    const soma = valores.reduce((acc, d) => acc + d, 0);
+    const media = valores.length ? soma / valores.length : 0;
+    const ess = Math.round((media / 10) * 100);
     return { ess, valores, emotions };
   }
 
@@ -233,7 +224,6 @@ export class DashboardController {
   @Roles(UserRole.ADMIN)
   async getEssGeral(@Req() req: any) {
     const companyId = req.user?.companyId;
-    // AGORA reinterpreta ESS geral como NPS geral (para compatibilidade de front até ajuste)
     const since = new Date();
     since.setDate(since.getDate() - 30);
   const pulseResponses = await this.prisma.pulseResponse.findMany({ where: { createdAt: { gte: since }, user: { companyId } } });
@@ -244,7 +234,6 @@ export class DashboardController {
         if (Array.isArray(arr) && arr.length && typeof arr[0].resposta === 'number') scores.push(arr[0].resposta);
       } catch (e) {}
     });
-    // converter média 0-10 para percentual (como antigo ESS) apenas para não quebrar tela existente
     const media = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
     const ess = Math.round((media / 10) * 100);
     return { ess, valores: scores };

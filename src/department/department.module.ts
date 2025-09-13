@@ -3,7 +3,7 @@ import { DepartmentController } from './department.controller';
 import { DepartmentService } from './department.service';
 import { CompanyModule } from '../company/company.module';
 import { UserModule } from '../user/user.module';
-import { PrismaService } from '../../prisma/prisma.service'; // ajuste o caminho se necessário
+import { PrismaService } from '../../prisma/prisma.service'; 
 
 
 @Module({

@@ -5,7 +5,7 @@ export class CreateDepartmentDto {
         throw new Error('Method not implemented.');
     }
 
-    @IsNotEmpty()
+    @IsNotEmpty({message: 'Obrigatorio informar o Nome'})
     name: string;
 
 

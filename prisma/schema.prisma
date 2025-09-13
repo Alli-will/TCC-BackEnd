@@ -7,6 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum QuestionModality {
+  pulso
+  clima
+}
+
+enum QuestionType {
+  qualitativa
+  quantitativa
+}
+
 model Search {
   id        Int      @id @default(autoincrement())
   titulo    String
@@ -36,13 +46,12 @@ model User {
   resetToken     String?         @unique
   resetTokenExpires DateTime?
   climaResponses ClimaResponse[]
-  diaryEntries   DiaryEntry[]
-  knowledges     Knowledge[]     @relation("UserToKnowledge")
   notifications  Notification[]
   pulseResponses PulseResponse[]
   // Relação também opcional
   company        Company?        @relation(fields: [companyId], references: [id])
   department     Department?     @relation(fields: [departmentId], references: [id])
+  ativo          Boolean         @default(true)
   @@unique([companyId, internal_id])
 }
 
@@ -62,6 +71,7 @@ model Company {
   searches       Search[]
   pulseResponses PulseResponse[]
   climaResponses ClimaResponse[]
+  questions     Question[]
 }
 
 model Department {
@@ -72,22 +82,19 @@ model Department {
   users     User[]
 }
 
-model DiaryEntry {
-  id          Int             @id @default(autoincrement())
-  date        DateTime
-  emotion     String
-  description String
-  created_at  DateTime        @default(now())
-  userId      Int
-  user        User            @relation(fields: [userId], references: [id])
-  reasons     ReasonEmotion[] @relation("DiaryEntryToReasonEmotion")
+model Question {
+  id            Int               @id @default(autoincrement())
+  texto         String
+  descricaoBusca String?
+  modalidade    QuestionModality
+  tipoResposta  QuestionType
+  createdAt     DateTime          @default(now())
+  companyId     Int?
+  company       Company?          @relation(fields: [companyId], references: [id])
+  ativo         Boolean           @default(true)
 }
 
-model ReasonEmotion {
-  id           Int          @id @default(autoincrement())
-  reason       String       @unique
-  diaryEntries DiaryEntry[] @relation("DiaryEntryToReasonEmotion")
-}
+// DiaryEntry e ReasonEmotion removidos
 
 model Notification {
   id        Int      @id @default(autoincrement())
@@ -98,26 +105,7 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model Knowledge {
-  id             Int       @id @default(autoincrement())
-  url            String?
-  created_at     DateTime  @default(now())
-  updated_at     DateTime  @updatedAt
-  deleted_at     DateTime?
-  createdBy_user Int
-  anexo          Bytes?
-  createdBy      User      @relation("UserToKnowledge", fields: [createdBy_user], references: [id])
-}
-
-model SupportMaterial {
-  id                Int       @id @default(autoincrement())
-  url               String?
-  emotion           String?
-  reason_emotion_id Int?
-  created_at        DateTime  @default(now())
-  deleted_at        DateTime?
-  anexo             Bytes?
-}
+// Knowledge e SupportMaterial removidos
 
 model PulseResponse {
   id         Int      @id @default(autoincrement())

@@ -1,4 +1,4 @@
-import {Controller,Post,Body,HttpCode,HttpStatus,Req,UseGuards,Get, Query, Put, UploadedFile, UseInterceptors, Res, Param} from '@nestjs/common';
+import {Controller,Post,Body,HttpCode,HttpStatus,Req,UseGuards,Get, Query, Put, UploadedFile, UseInterceptors, Res, Param, Delete, Patch} from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -18,7 +18,7 @@ export class UserController {
   // Lista usuários apenas da mesma empresa (exceto suporte que pode ver todos se query all=true)
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  async getAllUsers(@Req() req, @Query('all') all?: string, @Query('companyId') companyIdQuery?: string) {
+  async getAllUsers(@Req() req, @Query('all') all?: string, @Query('companyId') companyIdQuery?: string, @Query('status') status?: 'ativos' | 'inativos' | 'todos') {
     try {
       const requester = req.user;
       const allowAll = requester.role === 'support' && all === 'true';
@@ -28,7 +28,7 @@ export class UserController {
         return { message: 'Usuário não vinculado a empresa.' };
       }
       const scopeCompany = allowAll ? undefined : (requestedCompanyId || requester.companyId);
-      const users = await this.userService.findAll(scopeCompany, allowAll);
+  const users = await this.userService.findAll(scopeCompany, allowAll, status || 'ativos');
       return users;
     } catch (error) {
       return {
@@ -327,6 +327,33 @@ export class UserController {
       return { message: 'Role atualizada', user: updated };
     } catch (error) {
       return { message: 'Erro ao atualizar role', error: error.response || error.message };
+    }
+  }
+
+  // Ativar/Inativar usuário
+  @Patch(':id/active')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPPORT)
+  async setActive(@Param('id') id: string, @Body() body: { ativo: boolean }, @Req() req) {
+    try {
+      const ativo = !!body?.ativo;
+      const updated = await this.userService.setActive(Number(id), ativo, req.user.id);
+      return { message: 'Status atualizado', user: updated };
+    } catch (error) {
+      return { message: 'Erro ao atualizar status', error: error.response || error.message };
+    }
+  }
+
+  // Exclusão segura: só se não houver registros
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPPORT)
+  async deleteUser(@Param('id') id: string, @Req() req) {
+    try {
+      const result = await this.userService.safeDelete(Number(id), req.user.id);
+      return { message: 'Usuário excluído', result };
+    } catch (error) {
+      return { message: 'Erro ao excluir usuário', error: error.response || error.message };
     }
   }
 }

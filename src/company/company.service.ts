@@ -17,7 +17,7 @@ export class CompanyService {
     const data = {
       ...dto,
       addressZipCode: Number(dto.addressZipCode),
-      phone: dto.phone, // já vem digits only
+      phone: dto.phone, 
     } as any;
     return this.prisma.company.create({ data });
   }

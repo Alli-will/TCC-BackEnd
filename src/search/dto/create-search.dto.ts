@@ -1,4 +1,4 @@
-import { IsString, IsIn, IsOptional, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsIn, IsOptional, IsArray, ValidateNested, IsInt } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class QuestionDto {
@@ -8,6 +8,10 @@ class QuestionDto {
   opcoes: any[];
   @IsOptional()
   obrigatoria?: boolean;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  questionId?: number;
 }
 
 export class CreateSearchDto {

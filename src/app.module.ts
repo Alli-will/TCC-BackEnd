@@ -4,36 +4,36 @@ import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
-import { DiaryModule } from './DiaryEntry/Diary/diary.module';
+// Diário removido
 import { CompanyModule } from './company/company.module';
-import { ReasonEmotionService } from './DiaryEntry/ReasonEmotion/reason-emotion.service';
-import { ReasonEmotionController } from './DiaryEntry/ReasonEmotion/reason-emotion.controller';
-import { ReasonEmotionModule } from './DiaryEntry/ReasonEmotion/reason-emotion.module';
+// ReasonEmotion removido
 import { NotificationModule } from './notification/notification.module';
 import { DepartmentModule } from './department/department.module';
-import { KnowledgeModule } from './knowledge/knowledge.module';
-import { SupportMaterialModule } from './support-material/support-material.module';
+// import { KnowledgeModule } from './knowledge/knowledge.module';
+// import { SupportMaterialModule } from './support-material/support-material.module';
 import { DashboardModule } from './Dashboard/dashboard.module';
-import { DiaryInsightsModule } from './DiaryEntry/metrics/diary-insights.module';
+// DiaryInsights removido
 import { SearchModule } from './search/search.module';
+import { QuestionModule } from './question/question.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
     UserModule,
     AuthModule,
-    DiaryModule,
+  // DiaryModule,
     CompanyModule,
-    ReasonEmotionModule,
+  // ReasonEmotionModule,
     NotificationModule,
     DepartmentModule,
-    KnowledgeModule,
-    SupportMaterialModule,
+  // KnowledgeModule,
+  // SupportMaterialModule,
   DashboardModule,
-  DiaryInsightsModule,
-  SearchModule
+  // DiaryInsightsModule,
+  SearchModule,
+  QuestionModule
   ],
-  controllers: [AppController, ReasonEmotionController],
-  providers: [AppService, ReasonEmotionService],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

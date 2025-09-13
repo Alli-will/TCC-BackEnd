@@ -1,5 +1,4 @@
 import { Controller, Get, Post, Body, Req, UseGuards, Put, Param, Delete } from '@nestjs/common';
-import { Request } from 'express';
 import { DepartmentService } from './department.service';
 import { CreateDepartmentDto } from './dto/department.dto';
 import { Roles } from '../auth/roles.decorator';
@@ -12,7 +11,7 @@ export class DepartmentController {
   constructor(private readonly departmentService: DepartmentService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.EMPLOYEE)
+  @Roles(UserRole.ADMIN)
   @UseGuards(JwtAuthGuard,RolesGuard)
   create(@Body() createDepartmentDto: CreateDepartmentDto, @Req() req: any) {
     const user = req.user as any;

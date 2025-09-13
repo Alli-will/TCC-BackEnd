@@ -1,4 +1,25 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  "include": [
+    "src/*.ts",
+    "src/auth/**/*.ts",
+    "src/company/**/*.ts",
+    "src/department/**/*.ts",
+    "src/Dashboard/**/*.ts",
+    "src/mail/**/*.ts",
+    "src/notification/**/*.ts",
+    "src/prisma/**/*.ts",
+    "src/search/**/*.ts",
+    "src/question/**/*.ts",
+    "src/user/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "**/*spec.ts",
+    "src/DiaryEntry/**",
+    "src/knowledge/**",
+    "src/support-material/**"
+  ]
 }
