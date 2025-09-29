@@ -1,6 +1,7 @@
-import { Controller, Post, Get, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, UseGuards, Patch } from '@nestjs/common';
 import { CompanyService } from './company.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
+import { UpdateCompanyDto } from './dto/update-company.dto';
 import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../auth/roles.decorator';
@@ -25,5 +26,12 @@ export class CompanyController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.companyService.findOne(Number(id));
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPPORT)
+  update(@Param('id') id: string, @Body() dto: UpdateCompanyDto) {
+    return this.companyService.update(Number(id), dto);
   }
 }

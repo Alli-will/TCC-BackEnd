@@ -105,8 +105,6 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Knowledge e SupportMaterial removidos
-
 model PulseResponse {
   id         Int      @id @default(autoincrement())
   userId     Int
@@ -114,7 +112,6 @@ model PulseResponse {
   answers    Json
   pesquisaId Int
   user       User     @relation(fields: [userId], references: [id])
-  // Redundância para segmentar relatórios multiempresa sem join profundo
   companyId  Int?
   company    Company? @relation(fields: [companyId], references: [id])
 
