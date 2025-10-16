@@ -45,6 +45,23 @@ export class SearchController {
     return this.searchService.getReport(Number(id), departmentId ? Number(departmentId) : undefined, req?.user?.companyId);
   }
 
+  // Respostas textuais (qualitativas) anonimizadas de uma pergunta específica
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/text-answers')
+  textAnswers(
+    @Param('id') id: string,
+    @Query('questionIndex') questionIndex: string,
+    @Query('departmentId') departmentId?: string,
+    @Req() req?: any,
+  ) {
+    return this.searchService.getTextAnswers(
+      Number(id),
+      Number(questionIndex),
+      departmentId ? Number(departmentId) : undefined,
+      req?.user?.companyId,
+    );
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post('respond')
   respond(@Body() dto: RespondSearchDto, @Req() req: any) {

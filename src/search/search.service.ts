@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateSearchDto } from './dto/create-search.dto';
 import { RespondSearchDto } from './dto/respond-search.dto';
 
-// Perguntas padrão para PESQUISA TIPO PULSO (escala 0-10) — reduzido para 5 perguntas
+// Perguntas padrão para PESQUISA TIPO PULSO (escala 0-10)
 const DEFAULT_PULSO_QUESTIONS = [
   {
     texto: 'Em uma escala de 0 a 10, o quanto você recomendaria a empresa como um bom lugar para trabalhar para um amigo ou conhecido?',
@@ -32,7 +32,7 @@ const DEFAULT_PULSO_QUESTIONS = [
   },
 ];
 
-// Perguntas padrão para PESQUISA TIPO CLIMA (escala Likert 1-5) — reduzido para 5 perguntas
+// Perguntas padrão para PESQUISA TIPO CLIMA (escala Likert 1-5) 
 const DEFAULT_CLIMA_QUESTIONS = [
   { texto: 'Sinto-me satisfeito(a) com meu trabalho atualmente?', opcoes: [1,2,3,4,5], obrigatoria: true },
   { texto: 'Tenho motivação para realizar minhas tarefas diariamente?', opcoes: [1,2,3,4,5], obrigatoria: true },
@@ -170,16 +170,18 @@ export class SearchService {
   const search = await this.prisma.search.findFirst({ where: { id: dto.searchId, ...(companyId ? { companyId } : {}) } });
     if (!search) throw new NotFoundException('Pesquisa não encontrada');
 
-    // Validar obrigatoriedade: todas precisam ter resposta não nula/undefined
+    // Validar obrigatoriedade: somente perguntas marcadas como obrigatórias exigem resposta
     const perguntas: any[] = Array.isArray(search.perguntas) ? search.perguntas : [];
-    const provided = dto.answers || [];
+    const provided = Array.isArray(dto.answers) ? dto.answers : [];
     const missing: number[] = [];
-    perguntas.forEach((_, idx) => {
+    perguntas.forEach((q: any, idx) => {
+      const obrigatoria = !(q && q.obrigatoria === false); // default: obrigatória
+      if (!obrigatoria) return; // opcional
       const ans = provided[idx]?.resposta;
       if (ans === undefined || ans === null || ans === '') missing.push(idx + 1);
     });
     if (missing.length) {
-      throw new BadRequestException(`Todas as perguntas são obrigatórias. Faltando responder: ${missing.join(', ')}`);
+      throw new BadRequestException(`Há perguntas obrigatórias sem resposta: ${missing.join(', ')}`);
     }
 
     // Verificar se já respondeu
@@ -243,7 +245,7 @@ export class SearchService {
       search = await this.prisma.search.findFirst({ where: { id } });
     }
     if (!search) throw new NotFoundException('Pesquisa não encontrada');
-    const perguntas: any[] = Array.isArray(search.perguntas) ? search.perguntas : [];
+  const perguntas: any[] = Array.isArray(search.perguntas) ? search.perguntas : [];
 
     const isPulso = search.tipo === 'pulso';
     // Monta condição de filtro opcional por departamento (via user.departmentId)
@@ -281,6 +283,7 @@ export class SearchService {
     const perguntasResultados: any[] = perguntas.map((_p, idx) => ({
       index: idx,
       texto: _p.texto,
+      tipoResposta: _p?.tipoResposta || (Array.isArray(_p.opcoes) && _p.opcoes.length ? 'quantitativa' : 'qualitativa'),
       media: null as number | null,
       distribuicao: {} as Record<string, { count: number; percent: number }> // opção -> stats
     }));
@@ -383,6 +386,63 @@ export class SearchService {
       neutros,
       npsDistribuicao,
       department: departmentInfo,
+    };
+  }
+
+  /**
+   * Lista respostas textuais (qualitativas) anonimizadas de uma pergunta específica.
+   * Nunca retorna identificadores de usuário; aplica filtro opcional por departamento e por empresa (quando aplicável).
+   */
+  async getTextAnswers(id: number, questionIndex: number, departmentId?: number, companyId?: number) {
+    if (isNaN(questionIndex) || questionIndex < 0) {
+      throw new BadRequestException('Parâmetro questionIndex inválido');
+    }
+    let search = await this.prisma.search.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
+    if (!search && companyId) {
+      search = await this.prisma.search.findFirst({ where: { id } });
+    }
+    if (!search) throw new NotFoundException('Pesquisa não encontrada');
+    const perguntas: any[] = Array.isArray(search.perguntas) ? search.perguntas : [];
+    const alvo = perguntas[questionIndex];
+    if (!alvo) throw new NotFoundException('Pergunta não encontrada');
+    const isPulso = search.tipo === 'pulso';
+
+    const applyCompanyFilter = !!(companyId && (search as any).companyId);
+    const baseWhere: any = { pesquisaId: id, ...(applyCompanyFilter ? { companyId } : {}) };
+    if (departmentId) baseWhere.user = { departmentId };
+
+    const includeUser = { user: true };
+    let responses = isPulso
+      ? await this.prisma.pulseResponse.findMany({ where: baseWhere, include: includeUser })
+      : await this.prisma.climaResponse.findMany({ where: baseWhere, include: includeUser });
+    if (applyCompanyFilter && responses.length === 0) {
+      const legacyWhere: any = { pesquisaId: id };
+      if (departmentId) legacyWhere.user = { departmentId };
+      const legacy = isPulso
+        ? await this.prisma.pulseResponse.findMany({ where: legacyWhere, include: includeUser })
+        : await this.prisma.climaResponse.findMany({ where: legacyWhere, include: includeUser });
+      if (legacy.length) responses = legacy;
+    }
+
+  // Coletar apenas respostas textuais, limpando e anonimando
+    const coletadas: { texto: string }[] = [];
+    for (const r of responses as any[]) {
+      const ansArr: any[] = Array.isArray(r.answers) ? r.answers : [];
+      const v = ansArr[questionIndex]?.resposta;
+      if (typeof v === 'string') {
+        const texto = String(v).trim();
+        if (texto) coletadas.push({ texto });
+      }
+    }
+
+    const min = 2; // limiar mínimo para preservar anonimato
+    return {
+      id: search.id,
+      questionIndex,
+      tipo: search.tipo,
+      total: coletadas.length,
+      min,
+      respostas: coletadas.length >= min ? coletadas : [],
     };
   }
 }
