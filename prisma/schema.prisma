@@ -25,8 +25,12 @@ model Search {
   createdAt DateTime @default(now())
   companyId Int?
   company   Company? @relation(fields: [companyId], references: [id])
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  // Novo relacionamento many-to-many para escopo por múltiplos setores
+  departments SurveyDepartment[]
 
-  @@map("searches")
+  @@map("survey")
 }
 
 model User {
@@ -80,6 +84,9 @@ model Department {
   companyId Int
   company   Company @relation(fields: [companyId], references: [id])
   users     User[]
+  searches  Search[]
+  // Link table para pesquisas direcionadas a múltiplos departamentos
+  surveyLinks SurveyDepartment[]
 }
 
 model Question {
@@ -135,4 +142,16 @@ enum UserRole {
   admin
   employee
   support
+}
+
+// Tabela de junção para permitir que uma pesquisa seja direcionada a múltiplos departamentos.
+model SurveyDepartment {
+  id           Int        @id @default(autoincrement())
+  searchId     Int
+  departmentId Int
+  search       Search     @relation(fields: [searchId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([searchId, departmentId])
+  @@map("survey_department")
 }

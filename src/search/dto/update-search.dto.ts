@@ -1,7 +1,7 @@
-import { IsString, IsIn, IsOptional, IsArray, ValidateNested, IsInt, ArrayNotEmpty, IsNumber } from 'class-validator';
+import { IsString, IsIn, IsOptional, IsArray, ValidateNested, IsInt } from 'class-validator';
 import { Type } from 'class-transformer';
 
-class QuestionDto {
+class QuestionDtoU {
   @IsString()
   texto: string;
   @IsArray()
@@ -14,27 +14,27 @@ class QuestionDto {
   questionId?: number;
 }
 
-export class CreateSearchDto {
+export class UpdateSearchDto {
+  @IsOptional()
   @IsString()
-  titulo: string;
+  titulo?: string;
 
+  @IsOptional()
   @IsString()
   @IsIn(['pulso', 'clima'])
-  tipo: string;
+  tipo?: string;
 
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => QuestionDto)
-  perguntas?: QuestionDto[];
+  @Type(() => QuestionDtoU)
+  perguntas?: QuestionDtoU[];
 
-  //nulo = todos os setores; valor = somente setor específico
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   departmentId?: number;
 
-  //permitir múltiplos setores
   @IsOptional()
   @IsArray()
   @Type(() => Number)

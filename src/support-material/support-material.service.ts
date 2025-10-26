@@ -1,2 +1,0 @@
-// Support Material removido
-export {}

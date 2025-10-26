@@ -9,6 +9,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UserRole } from '../auth/roles.decorator';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { UpdateMeDto } from './dto/update-me.dto';
 import * as crypto from 'crypto';
 
 @Controller('user')
@@ -107,7 +108,6 @@ export class UserController {
       if (!companyId) {
         return { message: 'Administrador não vinculado a empresa.' };
       }
-      // Força role suporte no service via campo adicional
   const supportUser = await this.userService.createSupport(createUserDto, creatorUser.id);
   return { message: 'Usuário de support criado com sucesso!', user: supportUser };
     } catch (error) {
@@ -128,7 +128,7 @@ export class UserController {
 
   @Put('me')
   @UseGuards(JwtAuthGuard)
-  async updateMe(@Body() body: any, @Req() req) {
+  async updateMe(@Body() body: UpdateMeDto, @Req() req) {
     try {
       const updated = await this.userService.updateUser(req.user.id, body);
       return { message: 'Perfil atualizado', user: updated };
@@ -151,7 +151,6 @@ export class UserController {
     if (!user || !user.avatar) return res.status(404).send('Sem avatar');
     const buf: Buffer = user.avatar as Buffer;
     const mime = user.avatarMimeType || 'image/png';
-    // ETag baseado no conteúdo para cache eficiente
     const etag = '"' + crypto.createHash('md5').update(buf).digest('hex') + '"';
     const ifNoneMatch = (req.headers['if-none-match'] || '') as string;
     if (ifNoneMatch && ifNoneMatch === etag) {
@@ -163,8 +162,6 @@ export class UserController {
     res.setHeader('ETag', etag);
     return res.end(buf);
   }
-
-  // Meta enxuta: informa apenas se há avatar e a versão (etag)
   @Get('me/avatar/meta')
   @UseGuards(JwtAuthGuard)
   async getMyAvatarMeta(@Req() req) {
@@ -219,12 +216,9 @@ export class UserController {
       base64: buf.toString('base64')
     };
   }
-
-  // Meta por ID
   @Get(':id/avatar/meta')
   @UseGuards(JwtAuthGuard)
   async getAvatarByIdMeta(@Param('id') id: string) {
-  // precisa incluir os bytes do avatar para calcular meta corretamente
   const user = await this.userService.findByIdWithAvatar(Number(id)) as any;
     if (!user || !user.avatar) return { hasAvatar: false };
     const buf: Buffer = user.avatar as Buffer;
@@ -268,12 +262,11 @@ export class UserController {
     if (!(file.buffer instanceof Buffer) || file.buffer.toString('utf8',0,15).startsWith('[object Object]')) {
       return { message: 'Arquivo inválido (corrompido)' };
     }
-  // log simples de tamanho
     const updated = await this.userService.updateUser(req.user.id, { avatar: file.buffer, avatarMimeType: file.mimetype });
     return { message: 'Avatar atualizado', user: { ...updated, avatar: undefined } };
   }
 
-  // Auditoria: lista avatares da empresa (apenas admin) com primeiros bytes
+  //lista avatares da empresa (apenas admin) com primeiros bytes
   @Get('audit/avatars')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)

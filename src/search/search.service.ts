@@ -49,7 +49,7 @@ export const getDefaultQuestions = (tipo?: string) => {
 export class SearchService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(page = 1, limit = 10, excludeRespondedForUserId?: number, companyId?: number) {
+  async findAll(page = 1, limit = 10, excludeRespondedForUserId?: number, companyId?: number, userDepartmentId?: number, adminSeeAll = false) {
   try {
     const take = Math.min(Math.max(limit, 1), 100);
     const currentPage = Math.max(page, 1);
@@ -57,19 +57,33 @@ export class SearchService {
 
   let where: any = {};
   if (companyId) where.companyId = companyId;
+    if (!adminSeeAll) {
+      if (userDepartmentId != null) {
+        // Mostrar somente pesquisas do próprio departamento ou abertas.
+        where = {
+          ...where,
+          OR: [
+            { AND: [{ departments: { none: {} } }, { departmentId: null }] },
+            { departments: { some: { departmentId: userDepartmentId } } },
+            { departmentId: userDepartmentId },
+          ],
+        };
+      } else {
+        // Usuários sem departamento: apenas pesquisas abertas a todos (sem vínculos e departmentId nulo)
+        where = { ...where, AND: [{ departments: { none: {} } }, { departmentId: null }] };
+      }
+    }
+
+    // Quando listando para usuário responder, ainda exclui as já respondidas por ele
     if (excludeRespondedForUserId) {
       const userFilter: any = { userId: excludeRespondedForUserId };
-      if (companyId) {
-        userFilter.companyId = companyId; // redundante se pulses/climas tiverem companyId preenchido
-      }
+      if (companyId) userFilter.companyId = companyId;
       const [pulsoIds, climaIds] = await Promise.all([
         this.prisma.pulseResponse.findMany({ where: userFilter, select: { pesquisaId: true } }),
         this.prisma.climaResponse.findMany({ where: userFilter, select: { pesquisaId: true } }),
       ]);
       const respondedIds = Array.from(new Set([...pulsoIds.map(r => r.pesquisaId), ...climaIds.map(r => r.pesquisaId)]));
-      if (respondedIds.length) {
-        where = { ...where, id: { notIn: respondedIds } };
-      }
+      if (respondedIds.length) where = { ...where, id: { notIn: respondedIds } };
     }
 
     const [total, items] = await Promise.all([
@@ -81,6 +95,18 @@ export class SearchService {
         orderBy: { createdAt: 'desc' },
       }),
     ]);
+    // Busca vínculos de departamentos em lote para anexar departmentIds por pesquisa
+    let linksBySearch: Record<number, number[]> = {};
+    try {
+      const ids = items.map(i => i.id);
+      if (ids.length) {
+        const rows = await (this.prisma as any).surveyDepartment.findMany({ where: { searchId: { in: ids } } });
+        for (const r of rows || []) {
+          if (!linksBySearch[r.searchId]) linksBySearch[r.searchId] = [];
+          linksBySearch[r.searchId].push(r.departmentId);
+        }
+      }
+    } catch {}
 
     // Anexar contagem de respondentes (relatório rápido) para cada pesquisa.
     // Critério:
@@ -107,13 +133,12 @@ export class SearchService {
         }) : [];
 
         const pulsoCountMap: Record<number, number> = {};
-        // Map searchId -> set of userIds counted
         const seenPerSearch: Record<number, Set<number>> = {};
         for (const resp of pulseResponses as any[]) {
           const sId = resp.pesquisaId;
             if (!seenPerSearch[sId]) seenPerSearch[sId] = new Set<number>();
           const userId = resp.user?.id;
-          if (!userId || seenPerSearch[sId].has(userId)) continue; // já contamos a mais recente
+          if (!userId || seenPerSearch[sId].has(userId)) continue;
           let first: any;
           try {
             const arr = Array.isArray(resp.answers) ? resp.answers : (resp.answers as any);
@@ -134,6 +159,12 @@ export class SearchService {
           (it as any).respondentes = it.tipo === 'pulso'
             ? (pulsoCountMap[it.id] || 0)
             : (climaCountMap[it.id] || 0);
+          const joinIds = Array.isArray(linksBySearch[it.id]) ? linksBySearch[it.id] : [];
+          (it as any).departmentIds = joinIds.length
+            ? joinIds
+            : (it as any).departmentId
+              ? [(it as any).departmentId]
+              : [];
         });
       }
     } catch (e) {
@@ -147,14 +178,31 @@ export class SearchService {
     }
   }
 
-  async findOne(id: number, userIdToCheck?: number, companyId?: number) {
+  async findOne(id: number, userIdToCheck?: number, companyId?: number, userDepartmentId?: number) {
   let search;
   try {
-    search = await this.prisma.search.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
+    const baseWhere: any = { id, ...(companyId ? { companyId } : {}) };
+    if (userDepartmentId != null) {
+      baseWhere.OR = [
+        { AND: [{ departments: { none: {} } }, { departmentId: null }] },
+        { departments: { some: { departmentId: userDepartmentId } } },
+        { departmentId: userDepartmentId },
+      ];
+    } else {
+      // Quando usuário não tem departamento associado, permitir apenas pesquisas abertas a todos
+      baseWhere.AND = [{ departments: { none: {} } }, { departmentId: null }];
+    }
+  search = await this.prisma.search.findFirst({ where: baseWhere });
   } catch (e: any) {
     throw new NotFoundException('Pesquisa não encontrada');
   }
     if (!search) throw new NotFoundException('Pesquisa não encontrada');
+    let joinIds: number[] = [];
+    try {
+      const rows = await (this.prisma as any).surveyDepartment.findMany({ where: { searchId: id } });
+      joinIds = (rows || []).map((r: any) => r.departmentId);
+    } catch {}
+    (search as any).departmentIds = joinIds.length ? joinIds : (search as any).departmentId ? [(search as any).departmentId] : [];
     if (userIdToCheck) {
       const already = search.tipo === 'pulso'
         ? await this.prisma.pulseResponse.findFirst({ where: { userId: userIdToCheck, pesquisaId: id } })
@@ -166,8 +214,19 @@ export class SearchService {
     return search;
   }
 
-  async respond(dto: RespondSearchDto, userId: number, companyId?: number) {
-  const search = await this.prisma.search.findFirst({ where: { id: dto.searchId, ...(companyId ? { companyId } : {}) } });
+  async respond(dto: RespondSearchDto, userId: number, companyId?: number, userDepartmentId?: number) {
+  const baseWhere: any = { id: dto.searchId, ...(companyId ? { companyId } : {}) };
+  if (userDepartmentId != null) {
+    baseWhere.OR = [
+      { AND: [{ departments: { none: {} } }, { departmentId: null }] },
+      { departments: { some: { departmentId: userDepartmentId } } },
+      { departmentId: userDepartmentId },
+    ];
+  } else {
+    // Sem departamento no usuário: só pode responder pesquisas abertas (sem target de departamento)
+    baseWhere.AND = [{ departments: { none: {} } }, { departmentId: null }];
+  }
+  const search = await this.prisma.search.findFirst({ where: baseWhere });
     if (!search) throw new NotFoundException('Pesquisa não encontrada');
 
     // Validar obrigatoriedade: somente perguntas marcadas como obrigatórias exigem resposta
@@ -205,9 +264,28 @@ export class SearchService {
       obrigatoria: !!p.obrigatoria,
       ...(p.questionId ? { questionId: Number(p.questionId) } : {}),
     }));
-    return this.prisma.search.create({
-      data: { titulo: data.titulo, tipo: data.tipo, perguntas: perguntas as any, companyId } as any,
+    //valida lista de setores (quando enviada). Mantém compatibilidade com departmentId legado.
+    const listIds = Array.isArray((data as any).departmentIds) ? (data as any).departmentIds : [];
+    if (listIds.length) {
+      // valida todos
+      const deps = await this.prisma.department.findMany({ where: { id: { in: listIds }, ...(companyId ? { companyId } : {}) } });
+      const found = new Set(deps.map(d => d.id));
+      const missing = listIds.filter(id => !found.has(id));
+      if (missing.length) throw new BadRequestException('Departamento inválido');
+    }
+    // Compatibilidade: se departmentIds não enviado, aceita departmentId único
+    let legacyDepartmentId: number | null | undefined = (data as any).departmentId as any;
+    if (!listIds.length && legacyDepartmentId != null) {
+      const dep = await this.prisma.department.findFirst({ where: { id: legacyDepartmentId, ...(companyId ? { companyId } : {}) } });
+      if (!dep) throw new BadRequestException('Departamento inválido');
+    }
+    const created = await this.prisma.search.create({
+      data: { titulo: data.titulo, tipo: data.tipo, perguntas: perguntas as any, companyId, departmentId: listIds.length ? null : legacyDepartmentId } as any,
     });
+    if (listIds.length) {
+      await (this.prisma as any).surveyDepartment.createMany({ data: listIds.map((id: number) => ({ searchId: created.id, departmentId: id })) });
+    }
+    return created;
   }
 
   async addQuestion(searchId: number, question: { texto: string; opcoes: any; obrigatoria?: boolean }) {
@@ -220,6 +298,64 @@ export class SearchService {
       where: { id: searchId },
       data: { perguntas },
     });
+  }
+
+  private async hasResponses(searchId: number) {
+    const [p, c] = await Promise.all([
+      this.prisma.pulseResponse.count({ where: { pesquisaId: searchId } }),
+      this.prisma.climaResponse.count({ where: { pesquisaId: searchId } }),
+    ]);
+    return (p + c) > 0;
+  }
+
+  async update(id: number, dto: Partial<CreateSearchDto>, companyId?: number) {
+    const search = await this.prisma.search.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
+    if (!search) throw new NotFoundException('Pesquisa não encontrada');
+    if (await this.hasResponses(id)) throw new ConflictException('Pesquisa já possui respostas e não pode ser alterada');
+    const data: any = {};
+    if (dto.titulo != null) data.titulo = dto.titulo;
+    if (dto.tipo != null) data.tipo = dto.tipo;
+    if (dto.perguntas) {
+      data.perguntas = dto.perguntas.map((p: any) => ({
+        texto: p.texto,
+        opcoes: Array.isArray(p.opcoes) ? p.opcoes : [],
+        obrigatoria: !!p.obrigatoria,
+        ...(p.questionId ? { questionId: Number(p.questionId) } : {}),
+      }));
+    }
+    const listIds = Array.isArray((dto as any).departmentIds) ? (dto as any).departmentIds : undefined;
+    if (listIds) {
+      // valida todos
+      if (listIds.length) {
+        const deps = await this.prisma.department.findMany({ where: { id: { in: listIds }, ...(companyId ? { companyId } : {}) } });
+        const found = new Set(deps.map(d => d.id));
+        const missing = listIds.filter(id => !found.has(id));
+        if (missing.length) throw new BadRequestException('Departamento inválido');
+      }
+      data.departmentId = null;
+      await (this.prisma as any).surveyDepartment.deleteMany({ where: { searchId: id } });
+      if (listIds.length) {
+        await (this.prisma as any).surveyDepartment.createMany({ data: listIds.map((dId: number) => ({ searchId: id, departmentId: dId })) });
+      }
+    } else if ((dto as any).departmentId !== undefined) {
+      const depIdVal: any = (dto as any).departmentId;
+      await (this.prisma as any).surveyDepartment.deleteMany({ where: { searchId: id } });
+      if (depIdVal === null) {
+        data.departmentId = null;
+      } else {
+        const dep = await this.prisma.department.findFirst({ where: { id: Number(depIdVal), ...(companyId ? { companyId } : {}) } });
+        if (!dep) throw new BadRequestException('Departamento inválido');
+        data.departmentId = Number(depIdVal);
+      }
+    }
+    return this.prisma.search.update({ where: { id }, data });
+  }
+
+  async remove(id: number, companyId?: number) {
+    const search = await this.prisma.search.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
+    if (!search) throw new NotFoundException('Pesquisa não encontrada');
+    if (await this.hasResponses(id)) throw new ConflictException('Pesquisa já possui respostas e não pode ser excluída');
+    return this.prisma.search.delete({ where: { id } });
   }
 
   async removeQuestion(searchId: number, questionIndex: number) {
@@ -235,11 +371,10 @@ export class SearchService {
 
   /**
    * Gera relatório detalhado de uma pesquisa.
-   * Para pulso: calcula NPS (1ª pergunta escala 0-10), distribuição NPS, médias por pergunta e distribuição de opções.
+   * Para pulso: calcula eNPS (1ª pergunta escala 0-10), distribuição NPS, médias por pergunta e distribuição de opções.
    * Para clima: médias por pergunta, distribuição (1-5) e média geral.
    */
   async getReport(id: number, departmentId?: number, companyId?: number) {
-    // Primeiro tenta localizar a pesquisa dentro do escopo da empresa;
     let search = await this.prisma.search.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!search && companyId) {
       search = await this.prisma.search.findFirst({ where: { id } });
@@ -261,7 +396,7 @@ export class SearchService {
       ? await this.prisma.pulseResponse.findMany({ where: baseWhere, include: includeUser })
       : await this.prisma.climaResponse.findMany({ where: baseWhere, include: includeUser });
 
-    // Fallback: se filtramos por companyId mas veio 0 respostas, tentar novamente sem companyId (legacy rows com companyId nulo)
+    //se filtramos por companyId mas veio 0 respostas, tentar novamente sem companyId (legacy rows com companyId nulo)
     if (applyCompanyFilter && responses.length === 0) {
       const legacyWhere: any = { pesquisaId: id };
       if (departmentId) legacyWhere.user = { departmentId };
@@ -285,7 +420,7 @@ export class SearchService {
       texto: _p.texto,
       tipoResposta: _p?.tipoResposta || (Array.isArray(_p.opcoes) && _p.opcoes.length ? 'quantitativa' : 'qualitativa'),
       media: null as number | null,
-      distribuicao: {} as Record<string, { count: number; percent: number }> // opção -> stats
+      distribuicao: {} as Record<string, { count: number; percent: number }> 
     }));
 
     let nps: number | null = null;
@@ -350,8 +485,6 @@ export class SearchService {
     });
 
     if (isPulso) {
-      // NPS CLÁSSICO: somente a PRIMEIRA pergunta (recomendação). Cada usuário responde uma vez por pesquisa.
-      // Cada usuário => 1 nota (0-10) => classificado e entra na distribuição.
       const dist: Record<number, number> = {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0};
       for (const resp of responses as any[]) {
         const ansArray = Array.isArray(resp.answers) ? resp.answers : [];

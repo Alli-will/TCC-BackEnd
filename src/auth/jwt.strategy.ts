@@ -17,7 +17,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: any): Promise<{ id: number; email: string; role: string; companyId: number }> {
+  async validate(payload: any): Promise<{ id: number; email: string; role: string; companyId: number; departmentId: number | null }> {
     const user = await this.userService.findById(payload.sub) as any;
     if (!user) {
       throw new UnauthorizedException('Token inválido');
@@ -30,6 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: user.email,
       role: user.role,
       companyId: user.company?.id,
+      departmentId: user.departmentId ?? null,
     };
   }
 }
