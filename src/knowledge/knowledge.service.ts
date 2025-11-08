@@ -1,2 +1,2 @@
 // Knowledge removido
-export {}
+export {};

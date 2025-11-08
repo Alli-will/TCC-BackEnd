@@ -9,7 +9,6 @@ import { PrismaService } from 'prisma/prisma.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailService } from '../mail/mail.service';
 
-
 @Module({
   imports: [
     PassportModule,

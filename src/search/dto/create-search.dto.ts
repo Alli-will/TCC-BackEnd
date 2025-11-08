@@ -1,4 +1,13 @@
-import { IsString, IsIn, IsOptional, IsArray, ValidateNested, IsInt, ArrayNotEmpty, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsIn,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  IsInt,
+  ArrayNotEmpty,
+  IsNumber,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 class QuestionDto {

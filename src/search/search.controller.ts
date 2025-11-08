@@ -1,4 +1,15 @@
-import { Controller, Post, Body, Param, Delete, Get, Query, UseGuards, Req, Patch } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Get,
+  Query,
+  UseGuards,
+  Req,
+  Patch,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 import { SearchService, getDefaultQuestions } from './search.service';
 import { CreateSearchDto } from './dto/create-search.dto';
@@ -13,16 +24,33 @@ export class SearchController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Query('page') page?: string, @Query('limit') limit?: string, @Query('all') all?: string, @Req() req?: any) {
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('all') all?: string,
+    @Req() req?: any,
+  ) {
     const p = page ? Number(page) : 1;
     const l = limit ? Number(limit) : 10;
     const role = req?.user?.role;
     const wantAll = role === 'admin' && (all === '1' || all === 'true');
     const ex = wantAll ? undefined : req?.user?.id;
     try {
-      return this.searchService.findAll(p, l, ex, req?.user?.companyId, req?.user?.departmentId, wantAll);
+      return this.searchService.findAll(
+        p,
+        l,
+        ex,
+        req?.user?.companyId,
+        req?.user?.departmentId,
+        wantAll,
+      );
     } catch (e: any) {
-      return { items: [], meta: { total: 0, page: p, limit: l, totalPages: 1 }, error: 'Falha ao carregar pesquisas', detail: e?.message };
+      return {
+        items: [],
+        meta: { total: 0, page: p, limit: l, totalPages: 1 },
+        error: 'Falha ao carregar pesquisas',
+        detail: e?.message,
+      };
     }
   }
 
@@ -36,14 +64,27 @@ export class SearchController {
   @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string, @Req() req: any) {
-    return this.searchService.findOne(Number(id), req.user.id, req.user.companyId, req.user.departmentId);
+    return this.searchService.findOne(
+      Number(id),
+      req.user.id,
+      req.user.companyId,
+      req.user.departmentId,
+    );
   }
 
   // Relatório detalhado da pesquisa (indicadores por pergunta / eNPS / distribuições)
   @UseGuards(JwtAuthGuard)
   @Get(':id/report')
-  report(@Param('id') id: string, @Query('departmentId') departmentId?: string, @Req() req?: any) {
-    return this.searchService.getReport(Number(id), departmentId ? Number(departmentId) : undefined, req?.user?.companyId);
+  report(
+    @Param('id') id: string,
+    @Query('departmentId') departmentId?: string,
+    @Req() req?: any,
+  ) {
+    return this.searchService.getReport(
+      Number(id),
+      departmentId ? Number(departmentId) : undefined,
+      req?.user?.companyId,
+    );
   }
 
   // Respostas textuais (qualitativas) anonimizadas de uma pergunta específica
@@ -66,7 +107,12 @@ export class SearchController {
   @UseGuards(JwtAuthGuard)
   @Post('respond')
   respond(@Body() dto: RespondSearchDto, @Req() req: any) {
-    return this.searchService.respond(dto, req.user.id, req.user.companyId, req.user.departmentId);
+    return this.searchService.respond(
+      dto,
+      req.user.id,
+      req.user.companyId,
+      req.user.departmentId,
+    );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -79,7 +125,11 @@ export class SearchController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateSearchDto, @Req() req: any) {
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateSearchDto,
+    @Req() req: any,
+  ) {
     return this.searchService.update(Number(id), dto, req.user.companyId);
   }
 
@@ -89,7 +139,6 @@ export class SearchController {
   remove(@Param('id') id: string, @Req() req: any) {
     return this.searchService.remove(Number(id), req.user.companyId);
   }
-
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/questions')
@@ -102,10 +151,7 @@ export class SearchController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id/questions/:index')
-  removeQuestion(
-    @Param('id') id: string,
-    @Param('index') index: string
-  ) {
+  removeQuestion(@Param('id') id: string, @Param('index') index: string) {
     return this.searchService.removeQuestion(Number(id), Number(index));
   }
 }

@@ -11,17 +11,16 @@ export class RolesGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      console.warn('RolesGuard: request.user está undefined');
       return false;
     }
 
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredRoles) {
-      return true; 
+      return true;
     }
 
     return requiredRoles.includes(user.role);

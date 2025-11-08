@@ -1,4 +1,10 @@
-import { registerDecorator, ValidationOptions, ValidatorConstraint, ValidatorConstraintInterface, ValidationArguments } from 'class-validator';
+import {
+  registerDecorator,
+  ValidationOptions,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  ValidationArguments,
+} from 'class-validator';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -13,7 +19,7 @@ export class IsUniqueEmailConstraint implements ValidatorConstraintInterface {
     try {
       const user = await this.prisma.user.findUnique({
         where: { email: normalized },
-        select: { id: true }
+        select: { id: true },
       });
       return !user;
     } catch (e) {

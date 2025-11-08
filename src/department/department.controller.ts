@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Req, UseGuards, Put, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Req,
+  UseGuards,
+  Put,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { DepartmentService } from './department.service';
 import { CreateDepartmentDto } from './dto/department.dto';
 import { Roles } from '../auth/roles.decorator';
@@ -12,7 +22,7 @@ export class DepartmentController {
 
   @Post()
   @Roles(UserRole.ADMIN)
-  @UseGuards(JwtAuthGuard,RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   create(@Body() createDepartmentDto: CreateDepartmentDto, @Req() req: any) {
     const user = req.user as any;
     const userId = user.id;
@@ -30,7 +40,11 @@ export class DepartmentController {
   @Put(':id')
   @Roles(UserRole.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
-  update(@Param('id') id: string, @Body() body: { name: string }, @Req() req: any) {
+  update(
+    @Param('id') id: string,
+    @Body() body: { name: string },
+    @Req() req: any,
+  ) {
     const user = req.user as any;
     const userId = user.id;
     return this.departmentService.update(Number(id), body, userId);

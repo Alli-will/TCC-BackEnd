@@ -16,11 +16,13 @@ export class NotificationService {
 
   async notifyAllUsers(message: string, companyId?: number) {
     const users = await this.prisma.user.findMany({
-      where: companyId ? { companyId } : { companyId: { not: null } }
+      where: companyId ? { companyId } : { companyId: { not: null } },
     });
-    const notifications = users.map(user => this.prisma.notification.create({
-      data: { message, user: { connect: { id: user.id } } }
-    }));
+    const notifications = users.map((user) =>
+      this.prisma.notification.create({
+        data: { message, user: { connect: { id: user.id } } },
+      }),
+    );
     return Promise.all(notifications);
   }
 

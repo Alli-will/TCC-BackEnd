@@ -5,7 +5,6 @@ import { UpdateCompanyDto } from './dto/update-company.dto';
 
 @Injectable()
 export class CompanyService {
-
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateCompanyDto) {
@@ -18,7 +17,7 @@ export class CompanyService {
     const data = {
       ...dto,
       addressZipCode: Number(dto.addressZipCode),
-      phone: dto.phone, 
+      phone: dto.phone,
     } as any;
     return this.prisma.company.create({ data });
   }

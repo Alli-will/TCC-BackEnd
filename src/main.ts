@@ -8,7 +8,6 @@ import * as express from 'express';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  
   app.enableCors();
 
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
@@ -20,7 +19,7 @@ async function bootstrap() {
       transform: true,
       exceptionFactory: (errors) => {
         // Extrai mensagens detalhadas de todos os campos
-        const messages = errors.map(err => {
+        const messages = errors.map((err) => {
           if (err.constraints) {
             return Object.values(err.constraints).join(' ');
           }

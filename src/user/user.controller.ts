@@ -1,4 +1,21 @@
-import {Controller,Post,Body,HttpCode,HttpStatus,Req,UseGuards,Get, Query, Put, UploadedFile, UseInterceptors, Res, Param, Delete, Patch} from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Req,
+  UseGuards,
+  Get,
+  Query,
+  Put,
+  UploadedFile,
+  UseInterceptors,
+  Res,
+  Param,
+  Delete,
+  Patch,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -19,17 +36,31 @@ export class UserController {
   // Lista usuários apenas da mesma empresa (exceto suporte que pode ver todos se query all=true)
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  async getAllUsers(@Req() req, @Query('all') all?: string, @Query('companyId') companyIdQuery?: string, @Query('status') status?: 'ativos' | 'inativos' | 'todos') {
+  async getAllUsers(
+    @Req() req,
+    @Query('all') all?: string,
+    @Query('companyId') companyIdQuery?: string,
+    @Query('status') status?: 'ativos' | 'inativos' | 'todos',
+  ) {
     try {
       const requester = req.user;
       const allowAll = requester.role === 'support' && all === 'true';
       // Suporte pode pedir usuários de uma empresa específica via companyId
-      const requestedCompanyId = requester.role === 'support' && companyIdQuery ? Number(companyIdQuery) : undefined;
+      const requestedCompanyId =
+        requester.role === 'support' && companyIdQuery
+          ? Number(companyIdQuery)
+          : undefined;
       if (!allowAll && !requestedCompanyId && !requester.companyId) {
         return { message: 'Usuário não vinculado a empresa.' };
       }
-      const scopeCompany = allowAll ? undefined : (requestedCompanyId || requester.companyId);
-  const users = await this.userService.findAll(scopeCompany, allowAll, status || 'ativos');
+      const scopeCompany = allowAll
+        ? undefined
+        : requestedCompanyId || requester.companyId;
+      const users = await this.userService.findAll(
+        scopeCompany,
+        allowAll,
+        status || 'ativos',
+      );
       return users;
     } catch (error) {
       return {
@@ -48,7 +79,8 @@ export class UserController {
       if (!createUserDto.companyId) {
         return { message: 'companyId é obrigatório.' };
       }
-      const createdUser = await this.userService.createAccessUser(createUserDto);
+      const createdUser =
+        await this.userService.createAccessUser(createUserDto);
       return {
         message: 'Usuário administrador criado com sucesso!',
         user: createdUser,
@@ -83,7 +115,10 @@ export class UserController {
         };
       }
 
-      const createdUser = await this.userService.create(createUserDto, creatorUser.id);
+      const createdUser = await this.userService.create(
+        createUserDto,
+        creatorUser.id,
+      );
 
       return {
         message: 'Colaborador cadastrado com sucesso!',
@@ -108,10 +143,19 @@ export class UserController {
       if (!companyId) {
         return { message: 'Administrador não vinculado a empresa.' };
       }
-  const supportUser = await this.userService.createSupport(createUserDto, creatorUser.id);
-  return { message: 'Usuário de support criado com sucesso!', user: supportUser };
+      const supportUser = await this.userService.createSupport(
+        createUserDto,
+        creatorUser.id,
+      );
+      return {
+        message: 'Usuário de support criado com sucesso!',
+        user: supportUser,
+      };
     } catch (error) {
-  return { message: 'Erro ao criar usuário de support.', error: error.response || error.message };
+      return {
+        message: 'Erro ao criar usuário de support.',
+        error: error.response || error.message,
+      };
     }
   }
 
@@ -121,9 +165,9 @@ export class UserController {
     if (!email) {
       return { message: 'Parâmetro email é obrigatório' };
     }
-  const user = await this.userService.findByEmail(email);
-  if (!user) return { message: 'Usuário não encontrado' };
-  return user;
+    const user = await this.userService.findByEmail(email);
+    if (!user) return { message: 'Usuário não encontrado' };
+    return user;
   }
 
   @Put('me')
@@ -133,7 +177,10 @@ export class UserController {
       const updated = await this.userService.updateUser(req.user.id, body);
       return { message: 'Perfil atualizado', user: updated };
     } catch (error) {
-      return { message: 'Erro ao atualizar perfil', error: error.response || error.message };
+      return {
+        message: 'Erro ao atualizar perfil',
+        error: error.response || error.message,
+      };
     }
   }
 
@@ -147,7 +194,9 @@ export class UserController {
   @Get('me/avatar')
   @UseGuards(JwtAuthGuard)
   async getMyAvatar(@Req() req, @Res() res: Response) {
-  const user = await this.userService.findByIdWithAvatar(req.user.id) as any;
+    const user = (await this.userService.findByIdWithAvatar(
+      req.user.id,
+    )) as any;
     if (!user || !user.avatar) return res.status(404).send('Sem avatar');
     const buf: Buffer = user.avatar as Buffer;
     const mime = user.avatarMimeType || 'image/png';
@@ -165,30 +214,40 @@ export class UserController {
   @Get('me/avatar/meta')
   @UseGuards(JwtAuthGuard)
   async getMyAvatarMeta(@Req() req) {
-  const user = await this.userService.findByIdWithAvatar(req.user.id) as any;
+    const user = (await this.userService.findByIdWithAvatar(
+      req.user.id,
+    )) as any;
     if (!user || !user.avatar) return { hasAvatar: false };
     const buf: Buffer = user.avatar as Buffer;
     const etag = crypto.createHash('md5').update(buf).digest('hex');
-    return { hasAvatar: true, mimeType: user.avatarMimeType || 'image/png', etag };
+    return {
+      hasAvatar: true,
+      mimeType: user.avatarMimeType || 'image/png',
+      etag,
+    };
   }
 
   @Get('me/avatar/base64')
   @UseGuards(JwtAuthGuard)
   async getMyAvatarBase64(@Req() req) {
-    const user = await this.userService.findById(req.user.id) as any;
+    const user = (await this.userService.findById(req.user.id)) as any;
     if (!user || !user.avatar) return { hasAvatar: false };
     const buf: Buffer = user.avatar as Buffer;
     return {
       hasAvatar: true,
       mimeType: user.avatarMimeType || 'image/png',
-      base64: buf.toString('base64')
+      base64: buf.toString('base64'),
     };
   }
 
   @Get(':id/avatar')
   @UseGuards(JwtAuthGuard)
-  async getAvatarById(@Param('id') id: string, @Req() req, @Res() res: Response) {
-  const user = await this.userService.findByIdWithAvatar(Number(id)) as any;
+  async getAvatarById(
+    @Param('id') id: string,
+    @Req() req,
+    @Res() res: Response,
+  ) {
+    const user = (await this.userService.findByIdWithAvatar(Number(id))) as any;
     if (!user || !user.avatar) return res.status(404).send('Sem avatar');
     const buf: Buffer = user.avatar as Buffer;
     const mime = user.avatarMimeType || 'image/png';
@@ -207,30 +266,34 @@ export class UserController {
   @Get(':id/avatar/base64')
   @UseGuards(JwtAuthGuard)
   async getAvatarByIdBase64(@Param('id') id: string) {
-  const user = await this.userService.findByIdWithAvatar(Number(id)) as any;
+    const user = (await this.userService.findByIdWithAvatar(Number(id))) as any;
     if (!user || !user.avatar) return { hasAvatar: false };
     const buf: Buffer = user.avatar as Buffer;
     return {
       hasAvatar: true,
       mimeType: user.avatarMimeType || 'image/png',
-      base64: buf.toString('base64')
+      base64: buf.toString('base64'),
     };
   }
   @Get(':id/avatar/meta')
   @UseGuards(JwtAuthGuard)
   async getAvatarByIdMeta(@Param('id') id: string) {
-  const user = await this.userService.findByIdWithAvatar(Number(id)) as any;
+    const user = (await this.userService.findByIdWithAvatar(Number(id))) as any;
     if (!user || !user.avatar) return { hasAvatar: false };
     const buf: Buffer = user.avatar as Buffer;
     const etag = crypto.createHash('md5').update(buf).digest('hex');
-    return { hasAvatar: true, mimeType: user.avatarMimeType || 'image/png', etag };
+    return {
+      hasAvatar: true,
+      mimeType: user.avatarMimeType || 'image/png',
+      etag,
+    };
   }
 
   // Endpoint de debug para investigar avatar "corrompido"
   @Get(':id/avatar/debug')
   @UseGuards(JwtAuthGuard)
   async debugAvatar(@Param('id') id: string) {
-    const user = await this.userService.findByIdWithAvatar(Number(id)) as any;
+    const user = (await this.userService.findByIdWithAvatar(Number(id))) as any;
     if (!user || !user.avatar) return { hasAvatar: false };
     const buf: Buffer = user.avatar as Buffer;
     const etag = crypto.createHash('md5').update(buf).digest('hex');
@@ -240,30 +303,44 @@ export class UserController {
       size: buf.length,
       mimeType: user.avatarMimeType || 'image/png',
       etag,
-      headHex: Array.from(head).map(b => b.toString(16).padStart(2, '0')).join(' ')
+      headHex: Array.from(head)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join(' '),
     };
   }
 
   @Put('me/avatar')
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('file', {
-    storage: memoryStorage(),
-    fileFilter: (req, file, cb) => {
-      if (!file.mimetype.match(/^image\//)) return cb(new Error('Arquivo deve ser uma imagem'), false);
-      cb(null, true);
-    },
-    limits: { fileSize: 2 * 1024 * 1024 }
-  }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/^image\//))
+          return cb(new Error('Arquivo deve ser uma imagem'), false);
+        cb(null, true);
+      },
+      limits: { fileSize: 2 * 1024 * 1024 },
+    }),
+  )
   async uploadAvatar(@UploadedFile() file: Express.Multer.File, @Req() req) {
     if (!file) {
       return { message: 'Nenhum arquivo enviado' };
     }
     // Evita salvar strings tipo "[object Object]" por algum fluxo incorreto
-    if (!(file.buffer instanceof Buffer) || file.buffer.toString('utf8',0,15).startsWith('[object Object]')) {
+    if (
+      !(file.buffer instanceof Buffer) ||
+      file.buffer.toString('utf8', 0, 15).startsWith('[object Object]')
+    ) {
       return { message: 'Arquivo inválido (corrompido)' };
     }
-    const updated = await this.userService.updateUser(req.user.id, { avatar: file.buffer, avatarMimeType: file.mimetype });
-    return { message: 'Avatar atualizado', user: { ...updated, avatar: undefined } };
+    const updated = await this.userService.updateUser(req.user.id, {
+      avatar: file.buffer,
+      avatarMimeType: file.mimetype,
+    });
+    return {
+      message: 'Avatar atualizado',
+      user: { ...updated, avatar: undefined },
+    };
   }
 
   //lista avatares da empresa (apenas admin) com primeiros bytes
@@ -273,8 +350,10 @@ export class UserController {
   async auditAvatars(@Req() req) {
     const companyId = req.user.companyId;
     if (!companyId) return { message: 'Sem empresa' };
-    const list = await this.userService.findCompanyAvatars(companyId) as any[];
-    return list.map(u => {
+    const list = (await this.userService.findCompanyAvatars(
+      companyId,
+    )) as any[];
+    return list.map((u) => {
       const buf: Buffer | null = u.avatar as Buffer | null;
       if (!buf) return { id: u.id, hasAvatar: false };
       const head = buf.subarray(0, 16);
@@ -283,7 +362,9 @@ export class UserController {
         hasAvatar: true,
         size: buf.length,
         mimeType: u.avatarMimeType || 'unknown',
-        headHex: Array.from(head).map(b => b.toString(16).padStart(2, '0')).join(' ')
+        headHex: Array.from(head)
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join(' '),
       };
     });
   }
@@ -301,25 +382,47 @@ export class UserController {
   @Put(':id/department')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async updateDepartment(@Param('id') id: string, @Body() body: any, @Req() req) {
+  async updateDepartment(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req,
+  ) {
     try {
       const departmentId = body?.departmentId ?? null;
-      const updated = await this.userService.updateDepartment(Number(id), departmentId, req.user.id);
+      const updated = await this.userService.updateDepartment(
+        Number(id),
+        departmentId,
+        req.user.id,
+      );
       return { message: 'Departamento atualizado', user: updated };
     } catch (error) {
-      return { message: 'Erro ao atualizar departamento', error: error.response || error.message };
+      return {
+        message: 'Erro ao atualizar departamento',
+        error: error.response || error.message,
+      };
     }
   }
 
   @Put(':id/role')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPPORT)
-  async updateUserRole(@Param('id') id: string, @Body() body: UpdateUserRoleDto, @Req() req) {
+  async updateUserRole(
+    @Param('id') id: string,
+    @Body() body: UpdateUserRoleDto,
+    @Req() req,
+  ) {
     try {
-      const updated = await this.userService.updateRole(Number(id), body, req.user.id);
+      const updated = await this.userService.updateRole(
+        Number(id),
+        body,
+        req.user.id,
+      );
       return { message: 'Role atualizada', user: updated };
     } catch (error) {
-      return { message: 'Erro ao atualizar role', error: error.response || error.message };
+      return {
+        message: 'Erro ao atualizar role',
+        error: error.response || error.message,
+      };
     }
   }
 
@@ -327,13 +430,24 @@ export class UserController {
   @Patch(':id/active')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPPORT)
-  async setActive(@Param('id') id: string, @Body() body: { ativo: boolean }, @Req() req) {
+  async setActive(
+    @Param('id') id: string,
+    @Body() body: { ativo: boolean },
+    @Req() req,
+  ) {
     try {
       const ativo = !!body?.ativo;
-      const updated = await this.userService.setActive(Number(id), ativo, req.user.id);
+      const updated = await this.userService.setActive(
+        Number(id),
+        ativo,
+        req.user.id,
+      );
       return { message: 'Status atualizado', user: updated };
     } catch (error) {
-      return { message: 'Erro ao atualizar status', error: error.response || error.message };
+      return {
+        message: 'Erro ao atualizar status',
+        error: error.response || error.message,
+      };
     }
   }
 
@@ -346,7 +460,10 @@ export class UserController {
       const result = await this.userService.safeDelete(Number(id), req.user.id);
       return { message: 'Usuário excluído', result };
     } catch (error) {
-      return { message: 'Erro ao excluir usuário', error: error.response || error.message };
+      return {
+        message: 'Erro ao excluir usuário',
+        error: error.response || error.message,
+      };
     }
   }
 }

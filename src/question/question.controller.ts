@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/JwtAuthGuard';
 import { Roles, UserRole } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -43,7 +54,11 @@ export class QuestionController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateQuestionDto, @Req() req: any) {
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateQuestionDto,
+    @Req() req: any,
+  ) {
     return this.service.update(Number(id), dto, req?.user?.companyId);
   }
 

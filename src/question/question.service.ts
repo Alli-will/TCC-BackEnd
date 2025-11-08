@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
@@ -16,7 +20,12 @@ export class QuestionService {
   }
 
   async getOne(id: number, companyId?: number) {
-    const q = await this.prisma.question.findFirst({ where: { id, ...(companyId ? { OR: [{ companyId }, { companyId: null }] } : {}) } as any });
+    const q = await this.prisma.question.findFirst({
+      where: {
+        id,
+        ...(companyId ? { OR: [{ companyId }, { companyId: null }] } : {}),
+      } as any,
+    });
     if (!q) throw new NotFoundException('Pergunta não encontrada');
     return q;
   }

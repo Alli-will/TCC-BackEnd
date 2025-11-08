@@ -9,7 +9,8 @@ export class MailService {
   constructor(private readonly config: ConfigService) {}
 
   async sendPasswordReset(to: string, token: string) {
-    const appUrl = this.config.get<string>('APP_URL') || 'https://front-tccc.vercel.app';
+    const appUrl =
+      this.config.get<string>('APP_URL') || 'https://front-tccc.vercel.app';
     const resetLink = `${appUrl}/nova-senha/${token}`;
     const subject = 'Recuperação de senha';
     const html = `
@@ -26,7 +27,12 @@ export class MailService {
       </div>
     `;
     const apiKey = this.config.get<string>('BREVO_API_KEY');
-    const from = { email: (this.config.get<string>('SMTP_FROM') || 'no-reply@example.com').replace(/.*<(.*)>.*/,'$1'), name: 'Calma Mente' };
+    const from = {
+      email: (
+        this.config.get<string>('SMTP_FROM') || 'no-reply@example.com'
+      ).replace(/.*<(.*)>.*/, '$1'),
+      name: 'Calma Mente',
+    };
     try {
       await axios.post(
         'https://api.brevo.com/v3/smtp/email',
@@ -41,7 +47,7 @@ export class MailService {
             'api-key': apiKey,
             'Content-Type': 'application/json',
           },
-        }
+        },
       );
       this.logger.log(`Password reset email sent to ${to}`);
       return true;

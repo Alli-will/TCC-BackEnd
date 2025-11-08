@@ -10,6 +10,6 @@ import { PrismaService } from '../../prisma/prisma.service'; // ajuste o caminho
   imports: [CompanyModule, DepartmentModule],
   controllers: [UserController],
   providers: [UserService, IsUniqueEmailConstraint, PrismaService],
-  exports: [UserService]
+  exports: [UserService],
 })
 export class UserModule {}
